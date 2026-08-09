@@ -5,7 +5,7 @@ Welcome to the **Course Scraper**! This tool is a robust, scalable web scraping 
 It normalizes this diverse data into a flat, Schema.org-compliant CSV format, making it incredibly easy to import into content management systems like **Omeka S**.
 
 > [!TIP]
-> **New to the project?** Read the comprehensive [User Guide](file:///docs/user_guide.md) for an in-depth look at the architecture, how the CLI works, and how to add new scraping providers!
+> **New to the project?** You can consult the online documentation at [https://eddiebardad.github.io/cursos/](https://eddiebardad.github.io/cursos/) or read the local [User Guide](docs/user_guide.md) for an in-depth look at the architecture, how the CLI works, and how to add new scraping providers!
 
 ## Quick Start & Installation
 
