@@ -53,6 +53,15 @@ uv run python cli.py --url "https://www.netacad.com/courses/all-courses" --max-p
 uv run python cli.py --url "https://www.netacad.com/courses/all-courses" --max-pages 20 --render --output netacad_dynamic.csv
 ```
 
+## Logging & Run Summaries
+
+The CLI includes a built-in incremental logger. Every time a scrape finishes (successfully or with an error), a summary of the run is appended to `scraper_runs.log`. This file tracks:
+- Run status (SUCCESS or FAILED)
+- The URL and provider used
+- The output file generated
+- The total number of courses extracted
+- Any error messages encountered
+
 ---
 
 ## Expected Output & Verification

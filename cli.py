@@ -4,7 +4,7 @@ from typing import Optional
 from providers import get_provider_for_url, get_provider_by_name
 from exporters.csv_exporter import CSVExporter
 from exporters.jsonld_exporter import JSONLDExporter
-from utils.logger import get_logger
+from utils.logger import get_logger, log_run_summary
 from core.crawler import crawl_site
 from core.parser import parse_course_page
 
@@ -45,8 +45,9 @@ def _execute_scrape(url: str, provider: Optional[str], max_pages: int, render: b
         
     logger.info(f"Starting spider at {url} (max {max_pages} pages)")
     
+    courses = []
+    error_msg = None
     try:
-        courses = []
         if provider_instance:
             # Provider detected: always use its scrape() which knows the site's structure
             logger.info(f"Using {provider_instance.provider_name} adapter to scrape.")
@@ -69,7 +70,14 @@ def _execute_scrape(url: str, provider: Optional[str], max_pages: int, render: b
             logger.info(f"Scraping completed successfully. Extracted {len(courses)} courses to {output}.")
             
     except Exception as e:
+        error_msg = str(e)
         logger.error(f"Scraping failed: {e}", exc_info=True)
+    finally:
+        # Write to incremental summary log
+        prov_name = provider_instance.provider_name if provider_instance else None
+        log_run_summary(url, output, prov_name, render, len(courses), error_msg)
+        
+    if error_msg:
         raise typer.Exit(code=1)
 
 @app.command("run")

@@ -1,0 +1,14 @@
+[2026-08-10 00:06:01] RUN SUCCESS
+  URL: https://aprende.org/pages.php?r=.m_curso&cursoID=123
+  Provider: Aprende
+  Render Mode: False
+  Output File: aprende_test.csv
+  Extracted Courses: 10
+----------------------------------------
+[2026-08-10 00:07:34] RUN SUCCESS
+  URL: https://aprende.org/pages.php?r=.m_curso&cursoID=123
+  Provider: Aprende
+  Render Mode: False
+  Output File: aprende.csv
+  Extracted Courses: 1397
+----------------------------------------
