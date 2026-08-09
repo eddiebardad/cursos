@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Course Scraper Wiki</title>
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #333333;
+            --link-color: #0366d6;
+            --sidebar-bg: #f6f8fa;
+            --border-color: #e1e4e8;
+            --code-bg: #f6f8fa;
+            --code-text: #24292e;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Wiki Sidebar Navigation */
+        .sidebar {
+            width: 300px;
+            background-color: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            padding: 2rem 1.5rem;
+            box-sizing: border-box;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .sidebar h2 {
+            font-size: 1.2rem;
+            margin-top: 0;
+            margin-bottom: 1rem;
+            color: #24292e;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .sidebar ul {
+            list-style: none;
+            padding-left: 0;
+            margin: 0;
+        }
+
+        .sidebar ul li {
+            margin-bottom: 0.5rem;
+        }
+
+        .sidebar ul ul {
+            padding-left: 1.2rem;
+            margin-top: 0.25rem;
+            font-size: 0.9em;
+        }
+
+        .sidebar a {
+            color: var(--link-color);
+            text-decoration: none;
+            display: block;
+            padding: 0.25rem 0;
+        }
+
+        .sidebar a:hover {
+            text-decoration: underline;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            padding: 3rem 4rem;
+            max-width: 900px;
+            box-sizing: border-box;
+        }
+
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6 {
+            margin-top: 24px;
+            margin-bottom: 16px;
+            font-weight: 600;
+            line-height: 1.25;
+        }
+
+        h1 {
+            font-size: 2em;
+            padding-bottom: 0.3em;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        h2 {
+            font-size: 1.5em;
+            padding-bottom: 0.3em;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        h3 {
+            font-size: 1.25em;
+        }
+
+        a {
+            color: var(--link-color);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        pre {
+            background-color: var(--code-bg);
+            color: var(--code-text);
+            padding: 16px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 85%;
+            line-height: 1.45;
+        }
+
+        code {
+            font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+            background-color: rgba(27, 31, 35, 0.05);
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+            font-size: 85%;
+        }
+
+        pre code {
+            background-color: transparent;
+            padding: 0;
+        }
+
+        hr {
+            height: 0.25em;
+            padding: 0;
+            margin: 24px 0;
+            background-color: var(--border-color);
+            border: 0;
+        }
+
+        table {
+            border-spacing: 0;
+            border-collapse: collapse;
+            margin-top: 0;
+            margin-bottom: 16px;
+            width: 100%;
+        }
+
+        th,
+        td {
+            padding: 6px 13px;
+            border: 1px solid #dfe2e5;
+        }
+
+        th {
+            font-weight: 600;
+            background-color: #f6f8fa;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: static;
+                border-right: none;
+                border-bottom: 1px solid var(--border-color);
+            }
+
+            .main-content {
+                padding: 2rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <aside class="sidebar">
+        <h2>Navigation</h2>
+        <div class="toc">
+            <ul>
+                <li><a href="#course-scraper-wiki">Course Scraper Wiki</a>
+                    <ul>
+                        <li><a href="#1-overview-use-cases">1. Overview &amp; Use Cases</a>
+                            <ul>
+                                <li><a href="#common-use-cases">Common Use Cases</a></li>
+                            </ul>
+                        </li>
+                        <li><a href="#2-how-the-software-works">2. How the Software Works</a>
+                            <ul>
+                                <li><a href="#the-execution-flow">The Execution Flow</a></li>
+                            </ul>
+                        </li>
+                        <li><a href="#3-installation">3. Installation</a></li>
+                        <li><a href="#4-using-the-command-line-interface-cli">4. Using the Command-Line Interface
+                                (CLI)</a>
+                            <ul>
+                                <li><a href="#syntax">Syntax</a></li>
+                                <li><a href="#options-explained">Options Explained</a></li>
+                                <li><a href="#practical-examples">Practical Examples</a></li>
+                            </ul>
+                        </li>
+                        <li><a href="#5-built-in-providers">5. Built-in Providers</a>
+                            <ul>
+                                <li><a href="#aprende-aprendeorg">Aprende (aprende.org)</a></li>
+                                <li><a href="#netacad-netacadcom">NetAcad (netacad.com)</a></li>
+                            </ul>
+                        </li>
+                        <li><a href="#6-dynamic-data-schema">6. Dynamic Data Schema</a>
+                            <ul>
+                                <li><a href="#adding-new-fields">Adding New Fields</a></li>
+                                <li><a href="#flattened-output-for-omeka-s">Flattened Output for Omeka S</a></li>
+                                <li><a href="#key-export-columns">Key Export Columns</a></li>
+                            </ul>
+                        </li>
+                        <li><a href="#7-developer-guide-adding-a-new-provider">7. Developer Guide: Adding a New
+                                Provider</a></li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+
+    </aside>
+    <main class="main-content">
+        <h1 id="course-scraper-wiki">Course Scraper Wiki</h1>
+        <p>Welcome to the Course Scraper documentation! This wiki provides extensive guidance on how the software works,
+            deep-dive architectural overviews, practical use cases, and commands.</p>
+        <hr />
+        <h2 id="1-overview-use-cases">1. Overview &amp; Use Cases</h2>
+        <p>The Course Scraper is a scalable web scraping architecture designed specifically to extract educational
+            course metadata from various online learning platforms (e.g., NetAcad, Aprende.org) and generic catalogs.
+        </p>
+        <p>It normalizes this diverse, messy data into a flat, Schema.org-compliant CSV format, which is perfect for
+            importing into content management systems like <strong>Omeka S</strong>.</p>
+        <h3 id="common-use-cases">Common Use Cases</h3>
+        <ul>
+            <li><strong>Building a Centralized Course Catalog:</strong> You manage an Omeka S instance and want to
+                aggregate courses from multiple third-party providers (like Hubspot Academy, Cisco NetAcad, or local
+                university portals) into one unified search interface.</li>
+            <li><strong>Data Migration &amp; Archiving:</strong> You need to extract course data from an old, legacy
+                learning management system (LMS) into a structured CSV format for archiving or migrating to a new
+                platform.</li>
+            <li><strong>Market Research:</strong> You want to scrape publicly available course catalogs to analyze
+                pricing trends, course durations, and popular keywords across different educational providers.</li>
+            <li><strong>Handling Difficult SPAs:</strong> You need to scrape a modern website built with React, Angular,
+                or Vue (Single Page Applications) where traditional scrapers fail because the content is loaded
+                dynamically via JavaScript. This scraper's <code>--render</code> mode handles this effortlessly.</li>
+        </ul>
+        <hr />
+        <h2 id="2-how-the-software-works">2. How the Software Works</h2>
+        <p>The scraper is built on a highly modular architecture. Understanding this flow will help you use the tool
+            more effectively and extend it when necessary.</p>
+        <h3 id="the-execution-flow">The Execution Flow</h3>
+        <ol>
+            <li><strong>CLI Invocation (<code>cli.py</code>)</strong>: The user runs a command. The CLI parses arguments
+                like the target URL, the maximum number of pages to crawl, and whether to use JavaScript rendering.</li>
+            <li><strong>Provider Detection</strong>: The software inspects the URL. If it matches a known provider
+                (e.g., <code>netacad.com</code>), it hands control to that specific adapter. If not, it uses the Generic
+                Crawler.</li>
+            <li><strong>Data Extraction</strong>:<ul>
+                    <li><em>Generic Crawler</em>: Uses Breadth-First Search (BFS) to discover links on the same domain.
+                        It fetches HTML and passes it to the <code>parser.py</code>, which looks for Schema.org JSON-LD,
+                        Microdata, or OpenGraph tags.</li>
+                    <li><em>Provider Adapter</em>: Uses custom logic (e.g., querying a hidden API directly, or
+                        navigating a specific sitemap) to extract the data with surgical precision.</li>
+                </ul>
+            </li>
+            <li><strong>Schema Validation (<code>loader.py</code> &amp; <code>models.py</code>)</strong>: As raw data is
+                extracted, it is passed into the <code>Course</code> model. This model is <strong>dynamically
+                    generated</strong> from the official Schema.org RDF vocabulary. It ensures types are correct (e.g.,
+                <code>price</code> is a number) and validates formats (e.g., <code>timeRequired</code> must be ISO
+                8601).
+            </li>
+            <li><strong>Exporting</strong>: The validated Pydantic models are passed to the <code>CSVExporter</code>,
+                which flattens the nested data into a simple CSV structure.</li>
+        </ol>
+        <hr />
+        <h2 id="3-installation">3. Installation</h2>
+        <p>Ensure you have <strong>Python 3.9+</strong> installed. We recommend using a modern Python package manager
+            like <code>uv</code>.</p>
+        <ol>
+            <li><strong>Install Dependencies:</strong>
+                <code>bash
+   pip install -r requirements.txt</code>
+            </li>
+            <li><strong>Install Playwright (Required for <code>--render</code> mode):</strong>
+                If you intend to scrape dynamic websites, you must install the Playwright browser binaries:
+                <code>bash
+   playwright install chromium</code>
+            </li>
+        </ol>
+        <hr />
+        <h2 id="4-using-the-command-line-interface-cli">4. Using the Command-Line Interface (CLI)</h2>
+        <p>The <code>cli.py</code> script is your primary tool. It provides a clean interface for controlling the
+            scraping process.</p>
+        <h3 id="syntax">Syntax</h3>
+        <div class="codehilite">
+            <pre><span></span><code>python<span class="w"> </span>cli.py<span class="w"> </span>--url<span class="w"> </span>&lt;URL&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</code></pre>
+        </div>
+
+        <h3 id="options-explained">Options Explained</h3>
+        <ul>
+            <li><code>--url TEXT</code> <strong>(Required)</strong>: The starting URL. This can be a single course page,
+                a catalog, or a homepage.</li>
+            <li><code>--output TEXT</code>: The output file path. Defaults to <code>results.csv</code>. Use
+                <code>.json</code> to output raw JSON-LD instead.
+            </li>
+            <li><code>--provider TEXT</code>: Force a specific adapter (e.g., <code>Netacad</code>). Usually unnecessary
+                as the software auto-detects this.</li>
+            <li><code>--render / --no-render</code>: Enables the Playwright engine to execute JavaScript.
+                <strong>Crucial for modern React/Vue sites.</strong> (Default: <code>--no-render</code>).
+            </li>
+            <li><code>--max-pages INTEGER</code>: Limits the spider. If set to 50, the scraper will stop after scanning
+                50 pages or extracting ~500 courses. (Default: 100).</li>
+        </ul>
+        <h3 id="practical-examples">Practical Examples</h3>
+        <p><strong>Scenario A: Scraping a traditional, static university website</strong></p>
+        <div class="codehilite">
+            <pre><span></span><code>python<span class="w"> </span>cli.py<span class="w"> </span>--url<span class="w"> </span><span class="s2">&quot;https://example-university.edu/catalog&quot;</span><span class="w"> </span>--max-pages<span class="w"> </span><span class="m">200</span><span class="w"> </span>--output<span class="w"> </span>uni_courses.csv
+</code></pre>
+        </div>
+
+        <p><em>Result:</em> The generic spider crawls 200 pages, extracting JSON-LD course data instantly.</p>
+        <p><strong>Scenario B: Scraping a modern Single Page Application (SPA)</strong></p>
+        <div class="codehilite">
+            <pre><span></span><code>python<span class="w"> </span>cli.py<span class="w"> </span>--url<span class="w"> </span><span class="s2">&quot;https://modern-lms.com/explore&quot;</span><span class="w"> </span>--render<span class="w"> </span>--max-pages<span class="w"> </span><span class="m">50</span><span class="w"> </span>--output<span class="w"> </span>modern.csv
+</code></pre>
+        </div>
+
+        <p><em>Result:</em> Playwright boots up an invisible Chromium browser, executes the site's React code, waits for
+            the courses to appear, and then extracts them.</p>
+        <p><strong>Scenario C: Using a specialized provider (e.g., Aprende.org)</strong></p>
+        <div class="codehilite">
+            <pre><span></span><code>python<span class="w"> </span>cli.py<span class="w"> </span>--url<span class="w"> </span><span class="s2">&quot;https://aprende.org/&quot;</span><span class="w"> </span>--output<span class="w"> </span>aprende.csv
+</code></pre>
+        </div>
+
+        <p><em>Result:</em> The CLI detects <code>aprende.org</code>, bypasses the HTML entirely, queries the backend
+            API, and extracts thousands of courses in seconds.</p>
+        <hr />
+        <h2 id="5-built-in-providers">5. Built-in Providers</h2>
+        <p>Providers are custom "adapters" designed to defeat anti-scraping measures or extract data more efficiently
+            than generic crawling.</p>
+        <h3 id="aprende-aprendeorg">Aprende (<code>aprende.org</code>)</h3>
+        <ul>
+            <li><strong>Strategy</strong>: API Interception. Bypasses HTML parsing and hits the backend JSON API
+                directly.</li>
+            <li><strong>Performance</strong>: Extremely fast. Requires no rendering.</li>
+        </ul>
+        <h3 id="netacad-netacadcom">NetAcad (<code>netacad.com</code>)</h3>
+        <ul>
+            <li><strong>Strategy</strong>: Dual-Mode.<ul>
+                    <li><strong>Static (Default)</strong>: Parses the <code>sitemap.xml</code> to construct course
+                        records from slugs. Bypasses 403 Forbidden blocks.</li>
+                    <li><strong>Rendered (<code>--render</code>)</strong>: Uses Playwright to wait for the React SPA to
+                        hydrate.</li>
+                </ul>
+            </li>
+        </ul>
+        <hr />
+        <h2 id="6-dynamic-data-schema">6. Dynamic Data Schema</h2>
+        <p>The scraper strictly adheres to the <a href="https://schema.org/Course">Schema.org Course specification</a>.
+        </p>
+        <p>Unlike typical Python projects where schemas are hardcoded, this scraper <strong>dynamically
+                generates</strong> its <code>Course</code> validation model at runtime by parsing the full official
+            Schema.org RDF vocabulary (<code>schemas/course_schema.rdf</code>). </p>
+        <h3 id="adding-new-fields">Adding New Fields</h3>
+        <p>If you need to extract a new metadata field, you <strong>do not need to write Python code</strong>. You only
+            need to ensure the property exists in <code>schemas/course_schema.rdf</code>. The software automatically
+            adapts, validates it, and adds a column for it in the CSV.</p>
+        <h3 id="flattened-output-for-omeka-s">Flattened Output for Omeka S</h3>
+        <p>Systems like Omeka S require flat structures. The exporter (<code>csv_exporter.py</code>) automatically
+            flattens complex objects.
+            For example, <code>price</code> and <code>priceCurrency</code> (which technically belong to a nested
+            <code>schema:offers</code> object) are mapped directly onto the <code>Course</code> root row.
+        </p>
+        <h3 id="key-export-columns">Key Export Columns</h3>
+        <p>Over 140 properties are supported. The most common are:
+            * <code>schema:name</code>: Course Title
+            * <code>schema:description</code>: Course synopsis
+            * <code>schema:url</code>: Permalink
+            * <code>schema:provider</code>: Organization offering the course
+            * <code>schema:keywords</code>: Comma-separated tags
+            * <code>schema:timeRequired</code>: ISO 8601 duration (e.g., <code>PT6H</code>)
+            * <code>schema:price</code>: Cost of the course</p>
+        <hr />
+        <h2 id="7-developer-guide-adding-a-new-provider">7. Developer Guide: Adding a New Provider</h2>
+        <p>If you encounter a site that the generic crawler cannot handle, you can build a Provider.</p>
+        <ol>
+            <li>Create a new file in <code>providers/</code> (e.g., <code>providers/my_site.py</code>).</li>
+            <li>Inherit from <code>ProviderBase</code>.</li>
+            <li>Implement <code>can_handle()</code> and <code>scrape()</code>.</li>
+        </ol>
+        <p><strong>Template:</strong></p>
+        <div class="codehilite">
+            <pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">urllib.parse</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProviderBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">schemas.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Course</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">MySiteProvider</span><span class="p">(</span><span class="n">ProviderBase</span><span class="p">):</span>
+    <span class="n">provider_name</span> <span class="o">=</span> <span class="s2">&quot;MySite&quot;</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">can_handle</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="c1"># Detect if this URL belongs to your site</span>
+        <span class="k">return</span> <span class="s2">&quot;mysite.com&quot;</span> <span class="ow">in</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">urlparse</span><span class="p">(</span><span class="n">url</span><span class="p">)</span><span class="o">.</span><span class="n">netloc</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">scrape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">render</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Course</span><span class="p">]:</span>
+        <span class="c1"># 1. Fetch the data (use self.crawler.get(url) or httpx)</span>
+        <span class="c1"># 2. Parse the data</span>
+        <span class="c1"># 3. Yield Course objects</span>
+
+        <span class="k">yield</span> <span class="n">Course</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Advanced Python&quot;</span><span class="p">,</span>
+            <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span>
+            <span class="n">price</span><span class="o">=</span><span class="mf">99.99</span>
+        <span class="p">)</span>
+</code></pre>
+        </div>
+
+        <p>The architecture auto-discovers your file. Next time you run <code>cli.py</code> with a
+            <code>mysite.com</code> URL, your custom logic will execute automatically!
+        </p>
+    </main>
+</body>
+
+</html>
