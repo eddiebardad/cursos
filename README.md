@@ -5,7 +5,7 @@ Welcome to the **Course Scraper**! This tool is a robust, scalable web scraping 
 It normalizes this diverse data into a flat, Schema.org-compliant CSV format, making it incredibly easy to import into content management systems like **Omeka S**.
 
 > [!TIP]
-> **New to the project?** Read the comprehensive [User Guide](file:///docs/user_guide.md) for an in-depth look at the architecture, how the CLI works, and how to add new scraping providers!
+> **New to the project?** You can consult the online documentation at [https://eddiebardad.github.io/cursos/](https://eddiebardad.github.io/cursos/) or read the local [User Guide](docs/user_guide.md) for an in-depth look at the architecture, how the CLI works, and how to add new scraping providers!
 
 ## Quick Start & Installation
 
@@ -52,34 +52,6 @@ uv run python cli.py --url "https://www.netacad.com/courses/all-courses" --max-p
 # Note: Requires `playwright install` to have been run!
 uv run python cli.py --url "https://www.netacad.com/courses/all-courses" --max-pages 20 --render --output netacad_dynamic.csv
 ```
-
-## 4. Standalone Windows Executable
-The project can also be packaged as a single-file Windows executable that runs without opening a terminal window.
-
-If you have already built the app, launch it directly from `dist/gui_app.exe`.
-
-If you want to build it yourself from source, run this from the project root:
-```bash
-python -m PyInstaller gui_app.spec
-```
-
-The standalone app bundles:
-* the scraper backend
-* built-in providers like Aprende, NetAcad, Hubspot, and CognitiveClass
-* the dynamic course schema (`schemas/course_schema.rdf`)
-* the UI and logging support for packaged execution
-
-### Executable UI Options
-The GUI exposes the same core scraper functionality in a modern interface:
-* **Starting URL**: The site or course page to scrape.
-* **Provider**: Auto-detect or force a built-in adapter.
-* **Max pages to crawl**: Limits how far the generic spider will search.
-* **Render JavaScript with Playwright**: Enable browser rendering for SPAs.
-* **Output file**: Save path for CSV or JSON-LD output.
-* **Run Scrape**: Launch the scraping workflow.
-* **Console output**: Live progress and log messages are shown inside the app.
-
-The executable uses the same backend as the CLI, so provider detection, API-based adapters, and generic crawling all work the same way.
 
 ## Logging & Run Summaries
 

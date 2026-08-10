@@ -26,11 +26,7 @@ def _execute_scrape(url: str, provider: Optional[str], max_pages: int, render: b
         if provider_instance:
             logger.info(f"Auto-detected provider: {provider_instance.provider_name}")
         else:
-            if "aprende.org" in url:
-                provider_instance = get_provider_by_name("Aprende")
-                logger.info("Aprende URL detected; using Aprende provider adapter.")
-            else:
-                logger.info("No specific provider detected from URL, falling back to generic crawler.")
+            logger.info("No specific provider detected from URL, falling back to generic crawler.")
 
     if render:
         try:
