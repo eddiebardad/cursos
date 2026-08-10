@@ -90,6 +90,37 @@ python cli.py --url "https://aprende.org/" --output aprende.csv
 ```
 *Result:* The CLI detects `aprende.org`, bypasses the HTML entirely, queries the backend API, and extracts thousands of courses in seconds.
 
+## 4.1 Standalone Executable (Windows)
+The scraper can be packaged as a single-file Windows executable with PyInstaller. The executable runs without a terminal window and includes the same backend logic, built-in providers, and schema validation as the CLI.
+
+To run the packaged app:
+```bash
+./dist/gui_app.exe
+```
+
+To build it from source:
+```bash
+python -m PyInstaller gui_app.spec
+```
+
+### What the standalone app includes
+* Full scraper backend and provider adapters
+* Dynamic schema support via bundled `schemas/course_schema.rdf`
+* Live console-style output inside the app
+* Provider selection and auto-detection support in frozen mode
+
+### User interface options
+The GUI exposes the core scraping workflow in a modern desktop form:
+* **Starting URL**: Enter the initial site or course page.
+* **Provider**: Choose `Auto-detect` or force a specific adapter such as `Aprende`, `Netacad`, `HubspotAcademy`, or `CognitiveClass`.
+* **Max pages to crawl**: A limit on how many pages the generic spider will explore.
+* **Render JavaScript with Playwright**: Enable browser rendering for SPAs and dynamic sites.
+* **Output file**: Pick a destination path for CSV or JSON-LD exports.
+* **Run Scrape**: Starts scraping in a background thread so the UI remains responsive.
+* **Console output**: Displays status updates, logs, and error messages in real time.
+
+The standalone app preserves both provider adapter behavior and generic site crawling, making it easy to use without Python installed.
+
 ---
 
 ## 5. Built-in Providers

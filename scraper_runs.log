@@ -12,3 +12,52 @@
   Output File: aprende.csv
   Extracted Courses: 1397
 ----------------------------------------
+[2026-08-10 02:13:06] RUN SUCCESS
+  URL: https://aprende.org
+  Provider: Generic
+  Render Mode: False
+  Output File: testtest.csv
+  Extracted Courses: 0
+----------------------------------------
+[2026-08-10 02:14:48] RUN SUCCESS
+  URL: https://aprende.org/pages.php?r=.m_curso&cursoID=123
+  Provider: Generic
+  Render Mode: False
+  Output File: testtest.csv
+  Extracted Courses: 0
+----------------------------------------
+[2026-08-10 02:14:55] RUN SUCCESS
+  URL: https://aprende.org/pages.php?r=.m_curso&cursoID=123
+  Provider: Generic
+  Render Mode: False
+  Output File: testtest.csv
+  Extracted Courses: 0
+----------------------------------------
+[2026-08-10 02:15:33] RUN SUCCESS
+  URL: https://aprende.org/
+  Provider: Generic
+  Render Mode: False
+  Output File: testtest.csv
+  Extracted Courses: 0
+----------------------------------------
+[2026-08-10 02:15:44] RUN SUCCESS
+  URL: https://aprende.org/
+  Provider: Generic
+  Render Mode: False
+  Output File: testtest.csv
+  Extracted Courses: 0
+----------------------------------------
+[2026-08-10 02:19:41] RUN SUCCESS
+  URL: https://aprende.org
+  Provider: Aprende
+  Render Mode: False
+  Output File: testtest.csv
+  Extracted Courses: 1000
+----------------------------------------
+[2026-08-10 02:19:58] RUN SUCCESS
+  URL: https://aprende.org
+  Provider: Aprende
+  Render Mode: False
+  Output File: testtest.csv
+  Extracted Courses: 1397
+----------------------------------------

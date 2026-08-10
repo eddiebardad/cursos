@@ -1,9 +1,31 @@
 import os
+import sys
+from pathlib import Path
+
 from .loader import build_dynamic_model
 
-# Resolve the path to the local RDF vocabulary file
-_current_dir = os.path.dirname(os.path.abspath(__file__))
-_rdf_path = os.path.join(_current_dir, "course_schema.rdf")
+
+def _resolve_rdf_path() -> str:
+    """Locate the bundled RDF schema file in both normal and frozen builds."""
+    candidates = []
+    local_path = Path(__file__).resolve().parent / "course_schema.rdf"
+    candidates.append(local_path)
+
+    if getattr(sys, "frozen", False):
+        meipass_path = Path(getattr(sys, "_MEIPASS", ""))
+        if meipass_path:
+            candidates.append(meipass_path / "schemas" / "course_schema.rdf")
+        if getattr(sys, "executable", None):
+            candidates.append(Path(sys.executable).resolve().parent / "schemas" / "course_schema.rdf")
+
+    for candidate in candidates:
+        if candidate.exists():
+            return str(candidate)
+
+    return str(local_path)
+
+
+_rdf_path = _resolve_rdf_path()
 
 # Dynamically generate the Course model from the RDF file
 Course = build_dynamic_model(_rdf_path, class_uri="http://schema.org/Course")
