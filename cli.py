@@ -1,114 +1,311 @@
+"""
+cli.py
+==============================================================================
+Punto de entrada de línea de comandos para Cursodex (v0.2.0).
+
+Cumple estrictamente el contrato Unix:
+1. stdout: reservado para datos estructurados limpios (--output -).
+2. stderr: 100% de logs, errores, help text y resumen estructurado (run_summary).
+3. Códigos de salida semánticos:
+   0: >= 1 cursos extraídos con éxito.
+   2: 0 cursos extraídos sin excepción técnica (alerta temprana para n8n).
+   1: Error crítico, fallo de red, URL no soportada sin BFS o argumentos inválidos.
+==============================================================================
+"""
+
+import sys
+import time
+from typing import Annotated
+
 import typer
-from typing_extensions import Annotated
-from typing import Optional
-from providers import get_provider_for_url, get_provider_by_name
-from exporters.csv_exporter import CSVExporter
-from exporters.jsonld_exporter import JSONLDExporter
-from utils.logger import get_logger, log_run_summary
+
 from core.crawler import crawl_site
 from core.parser import parse_course_page
+from exporters.base import BaseExporter
+from exporters.csv_exporter import CSVExporter
+from exporters.jsonld_exporter import JSONLDExporter
+from providers import get_provider_by_name, get_provider_for_url
+from utils.logger import emit_run_summary, get_logger
 
 logger = get_logger(__name__)
 
-app = typer.Typer(help="Course Scraper CLI")
+app = typer.Typer(
+    help="Cursodex Extractor CLI — Motor de extracción y normalización semántica de cursos.",
+    add_completion=False,
+)
 
-def _execute_scrape(url: str, provider: Optional[str], max_pages: int, render: bool, output: str):
-    provider_instance = None
-    
-    if provider:
-        provider_instance = get_provider_by_name(provider)
-        if not provider_instance:
-            logger.error(f"Could not find a provider adapter named '{provider}'.")
-            raise typer.Exit(code=1)
-        logger.info(f"Forced provider adapter: {provider_instance.provider_name}")
-    else:
-        provider_instance = get_provider_for_url(url)
-        if provider_instance:
-            logger.info(f"Auto-detected provider: {provider_instance.provider_name}")
+
+def _resolve_exporter(output_path: str, format_param: str | None) -> BaseExporter:
+    """Determina el exportador adecuado según el flag o la extensión."""
+    if format_param:
+        fmt = format_param.lower().strip()
+        if fmt == "jsonld" or fmt == "json":
+            return JSONLDExporter()
+        elif fmt == "csv":
+            return CSVExporter()
         else:
-            logger.info("No specific provider detected from URL, falling back to generic crawler.")
+            logger.error(f"Formato no reconocido: '{format_param}'. Use 'csv' o 'jsonld'.")
+            raise ValueError(f"Formato inválido '{format_param}'")
 
-    if render:
-        try:
-            from playwright.sync_api import sync_playwright
-        except ImportError:
-            logger.error(
-                "Browser rendering is required (--render) but Playwright is unavailable. "
-                "Please run: pip install playwright && playwright install"
+    # Si se dirige a stdout (-), por defecto emitir JSON-LD estructurado
+    if output_path == "-":
+        return JSONLDExporter()
+
+    # Si es archivo, inferir por extensión
+    if output_path.lower().endswith(".json") or output_path.lower().endswith(".jsonld"):
+        return JSONLDExporter()
+    return CSVExporter()
+
+
+def _execute_scrape(
+    url: str | None,
+    provider: str | None,
+    output: str,
+    format_param: str | None,
+    limit: int,
+    render: bool,
+    enable_bfs: bool,
+    enable_modules: bool,
+    max_pages: int,
+) -> None:
+    start_time = time.perf_counter()
+    provider_instance = None
+    target_url = url
+    provider_name: str | None = None
+    courses = []
+
+    try:
+        # 1. Validación inicial de URL y Provider
+        if not target_url and not provider:
+            sys.stderr.write("Error: Debe especificar al menos una URL (--url / -u) o un proveedor (--provider / -p).\n")
+            emit_run_summary(
+                provider=None,
+                url=None,
+                courses_extracted=0,
+                needs_review_count=0,
+                exit_code=1,
+                elapsed_seconds=0.0,
             )
             raise typer.Exit(code=1)
 
-    if output.endswith('.json'):
-        exporter = JSONLDExporter()
-    else:
-        exporter = CSVExporter()
-        
-    logger.info(f"Starting spider at {url} (max {max_pages} pages)")
-    
-    courses = []
-    error_msg = None
-    try:
+        # 2. Resolución del proveedor si fue especificado explícitamente
+        if provider:
+            provider_instance = get_provider_by_name(provider)
+            if not provider_instance:
+                logger.error(f"No se encontró ningún adaptador registrado con el nombre '{provider}'.")
+                emit_run_summary(
+                    provider=provider,
+                    url=target_url,
+                    courses_extracted=0,
+                    needs_review_count=0,
+                    exit_code=1,
+                    elapsed_seconds=time.perf_counter() - start_time,
+                )
+                raise typer.Exit(code=1)
+
+            provider_name = provider_instance.provider_name
+            if not target_url and getattr(provider_instance, "default_url", None):
+                target_url = provider_instance.default_url
+
+            if not target_url:
+                logger.error(f"El adaptador '{provider_name}' no define una URL por defecto. Especifique --url.")
+                emit_run_summary(
+                    provider=provider_name,
+                    url=None,
+                    courses_extracted=0,
+                    needs_review_count=0,
+                    exit_code=1,
+                    elapsed_seconds=time.perf_counter() - start_time,
+                )
+                raise typer.Exit(code=1)
+
+            logger.info(f"Adaptador forzado: {provider_name} | URL: {target_url}")
+        else:
+            # Detección automática por dominio de URL
+            provider_instance = get_provider_for_url(target_url)  # type: ignore[arg-type]
+            if provider_instance:
+                provider_name = provider_instance.provider_name
+                logger.info(f"Proveedor detectado automáticamente: {provider_name}")
+            else:
+                # Si no hay adaptador registrado, verificar si se autorizó explícitamente el BFS
+                if not enable_bfs:
+                    msg = (
+                        f"Error: No existe un adaptador para la URL '{target_url}' y el crawler genérico BFS "
+                        "está desactivado por defecto (ARCHITECTURE.md §9). "
+                        "Especifique --enable-bfs para permitir el rastreo genérico.\n"
+                    )
+                    sys.stderr.write(msg)
+                    sys.stderr.flush()
+                    logger.error(msg.strip())
+                    emit_run_summary(
+                        provider=None,
+                        url=target_url,
+                        courses_extracted=0,
+                        needs_review_count=0,
+                        exit_code=1,
+                        elapsed_seconds=time.perf_counter() - start_time,
+                    )
+                    raise typer.Exit(code=1)
+                logger.info("Utilizando crawler genérico BFS (--enable-bfs activo).")
+
+        # 3. Validación de renderizado con Playwright
+        if render:
+            try:
+                import playwright  # noqa: F401
+            except ImportError as err:
+                logger.error(
+                    "El modo render (--render) requiere Playwright instalado. "
+                    "Ejecute: uv run playwright install"
+                )
+                emit_run_summary(
+                    provider=provider_name,
+                    url=target_url,
+                    courses_extracted=0,
+                    needs_review_count=0,
+                    exit_code=1,
+                    elapsed_seconds=time.perf_counter() - start_time,
+                )
+                raise typer.Exit(code=1) from err
+
+        # 4. Instanciación del exportador
+        try:
+            exporter = _resolve_exporter(output, format_param)
+        except ValueError as err:
+            emit_run_summary(
+                provider=provider_name,
+                url=target_url,
+                courses_extracted=0,
+                needs_review_count=0,
+                exit_code=1,
+                elapsed_seconds=time.perf_counter() - start_time,
+            )
+            raise typer.Exit(code=1) from err
+
+        # 5. Ejecución del scraping
+        logger.info(f"Iniciando extracción en {target_url} (límite: {limit if limit > 0 else 'sin límite'})")
+
         if provider_instance:
-            # Provider detected: always use its scrape() which knows the site's structure
-            logger.info(f"Using {provider_instance.provider_name} adapter to scrape.")
-            for course in provider_instance.scrape(url, render=render):
+            for course in provider_instance.scrape(target_url, render=render):
                 courses.append(course)
-                if max_pages and len(courses) >= max_pages * 10:
-                    # Soft cap to avoid runaway scrapes (10 courses per page est.)
+                if limit > 0 and len(courses) >= limit:
                     break
         else:
-            # No provider: use generic BFS crawler
-            for html, current_url in crawl_site(url, provider=None, render=render, max_pages=max_pages):
+            for html, current_url in crawl_site(target_url, provider=None, render=render, max_pages=max_pages):  # type: ignore[arg-type]
                 course = parse_course_page(html, current_url)
                 if course:
                     courses.append(course)
+                    if limit > 0 and len(courses) >= limit:
+                        break
 
+        elapsed = time.perf_counter() - start_time
+        needs_review_count = sum(1 for c in courses if c.needs_review)
+
+        # 6. Evaluación de resultados y códigos de salida
         if not courses:
-            logger.warning("No course records were found on the specified URL(s).")
-        else:
-            exporter.export(courses, output)
-            logger.info(f"Scraping completed successfully. Extracted {len(courses)} courses to {output}.")
-            
+            # Si el destino es stdout (-), emitir estructura vacía válida (JSON array vacío o solo cabecera CSV)
+            if output == "-":
+                exporter.export([], output)
+
+            logger.warning("No se encontraron registros de cursos válidos en la URL especificada.")
+            emit_run_summary(
+                provider=provider_name,
+                url=target_url,
+                courses_extracted=0,
+                needs_review_count=0,
+                exit_code=2,
+                elapsed_seconds=elapsed,
+            )
+            raise typer.Exit(code=2)
+
+        exporter.export(courses, output)
+        logger.info(f"Extracción completada con éxito. {len(courses)} cursos exportados.")
+        emit_run_summary(
+            provider=provider_name,
+            url=target_url,
+            courses_extracted=len(courses),
+            needs_review_count=needs_review_count,
+            exit_code=0,
+            elapsed_seconds=elapsed,
+        )
+        raise typer.Exit(code=0)
+
+    except typer.Exit:
+        raise
     except Exception as e:
-        error_msg = str(e)
-        logger.error(f"Scraping failed: {e}", exc_info=True)
-    finally:
-        # Write to incremental summary log
-        prov_name = provider_instance.provider_name if provider_instance else None
-        log_run_summary(url, output, prov_name, render, len(courses), error_msg)
-        
-    if error_msg:
-        raise typer.Exit(code=1)
+        elapsed = time.perf_counter() - start_time
+        logger.error(f"Error crítico de ejecución: {e}", exc_info=True)
+        emit_run_summary(
+            provider=provider_name,
+            url=target_url,
+            courses_extracted=len(courses),
+            needs_review_count=sum(1 for c in courses if getattr(c, "needs_review", False)),
+            exit_code=1,
+            elapsed_seconds=elapsed,
+        )
+        raise typer.Exit(code=1) from e
+
 
 @app.command("run")
 def run_command(
-    url: Annotated[str, typer.Option(help="Starting URL to crawl or scrape")],
-    provider: Annotated[Optional[str], typer.Option(help="Force a specific adapter by name")] = None,
-    max_pages: Annotated[int, typer.Option(help="Maximum number of pages to spider")] = 100,
-    render: Annotated[bool, typer.Option(help="Use Playwright to render JavaScript")] = False,
-    output: Annotated[str, typer.Option(help="Output file path")] = "results.csv"
-):
-    """Scrape course information from a URL."""
-    _execute_scrape(url, provider, max_pages, render, output)
+    url: Annotated[str | None, typer.Option("--url", "-u", help="URL inicial para extraer o rastrear")] = None,
+    provider: Annotated[str | None, typer.Option("--provider", "-p", help="Forzar un adaptador por nombre")] = None,
+    output: Annotated[str, typer.Option("--output", "-o", help="Ruta del archivo de salida o '-' para stdout")] = "results.csv",
+    format_param: Annotated[str | None, typer.Option("--format", "-f", help="Formato de exportación ('csv' o 'jsonld')")] = None,
+    limit: Annotated[int, typer.Option("--limit", "-l", help="Límite máximo de cursos a extraer (0 = sin límite)")] = 0,
+    render: Annotated[bool, typer.Option("--render", help="Usar Playwright para renderizar páginas JavaScript")] = False,
+    enable_bfs: Annotated[bool, typer.Option("--enable-bfs", help="Habilitar rastreo genérico BFS si no hay adaptador")] = False,
+    enable_modules: Annotated[bool, typer.Option("--enable-modules", help="Habilitar extracción de micro-módulos")] = False,
+    max_pages: Annotated[int, typer.Option("--max-pages", help="Límite máximo de páginas a spider en BFS")] = 100,
+) -> None:
+    """Extrae y normaliza cursos desde un proveedor o URL hacia CSV o JSON-LD."""
+    _execute_scrape(
+        url=url,
+        provider=provider,
+        output=output,
+        format_param=format_param,
+        limit=limit,
+        render=render,
+        enable_bfs=enable_bfs,
+        enable_modules=enable_modules,
+        max_pages=max_pages,
+    )
+
 
 @app.callback(invoke_without_command=True)
 def main_callback(
     ctx: typer.Context,
-    url: Annotated[Optional[str], typer.Option(help="Starting URL to crawl or scrape")] = None,
-    provider: Annotated[Optional[str], typer.Option(help="Force a specific adapter by name")] = None,
-    max_pages: Annotated[int, typer.Option(help="Maximum number of pages to spider")] = 100,
-    render: Annotated[bool, typer.Option(help="Use Playwright to render JavaScript")] = False,
-    output: Annotated[str, typer.Option(help="Output file path")] = "results.csv"
-):
-    """Course Scraper CLI entry point."""
+    url: Annotated[str | None, typer.Option("--url", "-u", help="URL inicial para extraer o rastrear")] = None,
+    provider: Annotated[str | None, typer.Option("--provider", "-p", help="Forzar un adaptador por nombre")] = None,
+    output: Annotated[str, typer.Option("--output", "-o", help="Ruta del archivo de salida o '-' para stdout")] = "results.csv",
+    format_param: Annotated[str | None, typer.Option("--format", "-f", help="Formato de exportación ('csv' o 'jsonld')")] = None,
+    limit: Annotated[int, typer.Option("--limit", "-l", help="Límite máximo de cursos a extraer (0 = sin límite)")] = 0,
+    render: Annotated[bool, typer.Option("--render", help="Usar Playwright para renderizar páginas JavaScript")] = False,
+    enable_bfs: Annotated[bool, typer.Option("--enable-bfs", help="Habilitar rastreo genérico BFS si no hay adaptador")] = False,
+    enable_modules: Annotated[bool, typer.Option("--enable-modules", help="Habilitar extracción de micro-módulos")] = False,
+    max_pages: Annotated[int, typer.Option("--max-pages", help="Límite máximo de páginas a spider en BFS")] = 100,
+) -> None:
+    """Punto de entrada general de Cursodex."""
     if ctx.invoked_subcommand is None:
-        if url:
-            _execute_scrape(url, provider, max_pages, render, output)
+        if url or provider:
+            _execute_scrape(
+                url=url,
+                provider=provider,
+                output=output,
+                format_param=format_param,
+                limit=limit,
+                render=render,
+                enable_bfs=enable_bfs,
+                enable_modules=enable_modules,
+                max_pages=max_pages,
+            )
         else:
-            print(ctx.get_help())
+            sys.stderr.write(ctx.get_help() + "\n")
+            raise typer.Exit(code=1)
+
 
 def main():
     app()
+
 
 if __name__ == "__main__":
     main()

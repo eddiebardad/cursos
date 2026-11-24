@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Iterable
+from collections.abc import Iterable
+
 from schemas.models import Course
+
 
 class BaseExporter(ABC):
     @abstractmethod

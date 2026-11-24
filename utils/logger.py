@@ -1,35 +1,72 @@
+"""
+utils/logger.py
+==============================================================================
+Logger centralizado de Cursodex.
+
+REGLAS INQUEBRANTABLES:
+1. El 100% de los logs y advertencias se envían exclusivamente a sys.stderr.
+2. Cero escrituras a archivos .log en disco (compatible con contenedor sin estado).
+3. emit_run_summary emite una única línea JSON compacta al final de la ejecución
+   directamente a sys.stderr con la estructura requerida en ARCHITECTURE.md §3.
+==============================================================================
+"""
+
+import json
 import logging
+import sys
+from datetime import UTC, datetime
+
 from config import config
 
+_FORMATTER = logging.Formatter(
+    fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
+
 def get_logger(name: str) -> logging.Logger:
+    """
+    Obtiene o configura un logger de forma idempotente enviando 100% a sys.stderr.
+    """
     logger = logging.getLogger(name)
-    if not logger.handlers:
-        handler = logging.StreamHandler()
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
-        handler.setFormatter(formatter)
+
+    # Verificar si ya tiene un StreamHandler apuntando a sys.stderr
+    has_stderr_handler = any(
+        isinstance(h, logging.StreamHandler) and getattr(h, "stream", None) is sys.stderr
+        for h in logger.handlers
+    )
+
+    if not has_stderr_handler:
+        handler = logging.StreamHandler(sys.stderr)
+        handler.setFormatter(_FORMATTER)
         logger.addHandler(handler)
-        logger.setLevel(getattr(logging, config.LOG_LEVEL.upper(), logging.INFO))
+
+    logger.setLevel(getattr(logging, config.LOG_LEVEL.upper(), logging.INFO))
+    logger.propagate = False
     return logger
 
-import datetime
 
-def log_run_summary(url: str, output: str, provider: str, render: bool, courses_count: int, error: str = None):
+def emit_run_summary(
+    provider: str | None,
+    url: str | None,
+    courses_extracted: int,
+    needs_review_count: int,
+    exit_code: int,
+    elapsed_seconds: float,
+) -> None:
     """
-    Writes an incremental summary of a scraper run to a local log file.
+    Emite un resumen estructurado de la ejecución en una única línea JSON compacta
+    a sys.stderr (ARCHITECTURE.md §3).
     """
-    log_file = "scraper_runs.log"
-    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    status = "SUCCESS" if not error else "FAILED"
-    
-    with open(log_file, "a", encoding="utf-8") as f:
-        f.write(f"[{now}] RUN {status}\n")
-        f.write(f"  URL: {url}\n")
-        f.write(f"  Provider: {provider or 'Generic'}\n")
-        f.write(f"  Render Mode: {render}\n")
-        f.write(f"  Output File: {output}\n")
-        f.write(f"  Extracted Courses: {courses_count}\n")
-        if error:
-            f.write(f"  Error: {error}\n")
-        f.write("-" * 40 + "\n")
+    summary = {
+        "event": "run_summary",
+        "provider": provider,
+        "url": url,
+        "courses_extracted": courses_extracted,
+        "needs_review_count": needs_review_count,
+        "exit_code": exit_code,
+        "elapsed_seconds": round(elapsed_seconds, 2),
+        "timestamp": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    sys.stderr.write(json.dumps(summary, ensure_ascii=False) + "\n")
+    sys.stderr.flush()

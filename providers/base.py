@@ -1,19 +1,31 @@
+"""
+providers/base.py
+==============================================================================
+Clase Base Abstracta para adaptadores de proveedores de cursos.
+Incluye registro automático de subclases y atributos de contrato.
+==============================================================================
+"""
+
 from abc import ABC, abstractmethod
-from typing import Iterator
-from schemas.models import Course
+from typing import ClassVar, Iterator
+
 from core.crawler import Crawler
 from core.parser import Parser
+from schemas.models import Course
+
 
 class ProviderBase(ABC):
     """
     Abstract Base Class for all site-specific adapters.
     Automatically registers subclasses into the Provider Registry.
     """
-    provider_name = "Base"
-    
+
+    provider_name: str = "Base"
+    default_url: str | None = None  # URL de entrada por defecto para el proveedor
+
     # Registry to store all adapter subclasses
-    _registry = []
-    
+    _registry: ClassVar[list[type[ProviderBase]]] = []
+
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         if cls.provider_name != "Base":
@@ -28,7 +40,7 @@ class ProviderBase(ABC):
     def can_handle(cls, url: str) -> bool:
         """Return True if this adapter can handle the given URL domain."""
         pass
-        
+
     def should_crawl(self, url: str) -> bool:
         """Hook for crawler to decide if a URL should be visited."""
         return True
@@ -36,14 +48,4 @@ class ProviderBase(ABC):
     @abstractmethod
     def scrape(self, url: str, render: bool = False) -> Iterator[Course]:
         """Fetch the page and yield normalized Course records."""
-        pass
-
-    # --- Helper Stubs for Subclasses ---
-    
-    def _extract_via_api(self, api_url: str) -> dict:
-        """Helper for fetching hidden API data on dynamic sites."""
-        pass
-        
-    def _parse_custom_selectors(self, html: str) -> dict:
-        """Helper for using BeautifulSoup to find site-specific DOM elements."""
         pass

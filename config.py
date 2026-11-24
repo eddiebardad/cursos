@@ -1,9 +1,25 @@
+"""
+config.py
+==============================================================================
+Configuración centralizada de Cursodex (v0.2.0).
+Valores por defecto respetando los acuerdos arquitectónicos y sobreescribibles
+mediante variables de entorno.
+==============================================================================
+"""
+
 import os
-import logging
+
 
 class Config:
-    LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
-    HTTP_TIMEOUT = int(os.getenv("HTTP_TIMEOUT", 30))
-    USER_AGENT = os.getenv("USER_AGENT", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) CourseScraper/1.0")
+    LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
+    HTTP_TIMEOUT: float = float(os.getenv("HTTP_TIMEOUT", "30.0"))
+    COURTESY_DELAY: float = float(os.getenv("COURTESY_DELAY", "1.0"))
+    FOLLOW_REDIRECTS: bool = os.getenv("FOLLOW_REDIRECTS", "True").lower() in ("true", "1", "yes")
+    MAX_RESULTS: int = int(os.getenv("MAX_RESULTS", "0"))
+    USER_AGENT: str = os.getenv(
+        "USER_AGENT",
+        "CursodexBot/1.0 (+https://cursodex.com; academic research index)",
+    )
+
 
 config = Config()

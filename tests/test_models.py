@@ -116,6 +116,16 @@ def test_synonym_boundary_short_words_positive_match():
     assert course.category == "Ciencia de Datos e Inteligencia Artificial"
 
 
+def test_synonym_boundary_accents_and_symbols():
+    """Confirma que tildes, ñ y símbolos técnicos (+, #) se manejan correctamente sin falsos separadores."""
+    assert match_synonym_boundary("programacion", "Curso avanzado de programación en la nube")
+    assert match_synonym_boundary("programación", "Curso de programacion estructurada")
+    assert match_synonym_boundary("espanol", "Material didáctico en español neutro")
+    assert match_synonym_boundary("español", "Material didactico en espanol")
+    assert match_synonym_boundary("c++", "Aprende c++ y estructuras de datos")
+    assert match_synonym_boundary("c#", "Desarrollo empresarial con c# y .net")
+
+
 # ==============================================================================
 # 3. Pruebas de Normalización de Duraciones (ISO 8601)
 # ==============================================================================
