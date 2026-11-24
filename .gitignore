@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments (uv / venv / conda)
+.venv/
+venv/
+env/
+ENV/
+.uv/
+
+# uv build cache
+.uv_cache/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Test cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# Jupyter Notebooks
+*.ipynb
+!tests/**/*.ipynb
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# --- Cursodex específico ---
+
+# Outputs de scraping y test (nunca se commitean datos)
+*.csv
+*.log
+results*.json
+results*.jsonld
+
+# Documentación HTML generada (si se usa docs/)
+docs/html/
+
+# Legacy scripts — se mantienen en disco pero NO en Git
+legacy/
+
+# Log de ejecuciones del scraper
+scraper_runs.log

@@ -1,20 +1,11 @@
-# --- Core Scraping & Crawling ---
-httpx>=0.27.0
-playwright>=1.40.0
-beautifulsoup4>=4.12.0
-
-# --- Parser Engines & Fallbacks (HTML/XML) ---
-lxml>=5.0.0
-html5lib>=1.1
-
-# --- Data Validation & Semantic Modeling ---
-pydantic>=2.9.0
-rdflib>=7.0.0
-
-# --- CLI & Type Utilities ---
-typer>=0.12.0
-typing-extensions>=4.9.0
-
-# --- Documentation Generation & Syntax Highlighting ---
-markdown>=3.5.0
-Pygments>=2.17.0
+# requirements.txt — OBSOLETO
+#
+# Este proyecto ya usa `pyproject.toml` gestionado con `uv`.
+# No uses pip install -r requirements.txt.
+#
+# Para instalar el entorno:
+#   uv sync --frozen
+#
+# Para añadir dependencias:
+#   uv add <package>          # producción
+#   uv add --dev <package>    # desarrollo
