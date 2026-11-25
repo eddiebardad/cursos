@@ -21,7 +21,6 @@ import click
 import typer
 
 from core.crawler import crawl_site
-from core.parser import parse_course_page
 from exporters.base import BaseExporter
 from exporters.csv_exporter import CSVExporter
 from exporters.jsonld_exporter import JSONLDExporter
@@ -200,12 +199,14 @@ def _execute_scrape(
                     break
         else:
             assert target_url is not None
-            for html, current_url in crawl_site(target_url, provider=None, render=render, max_pages=max_pages):
-                parsed_course = parse_course_page(html, current_url)
-                if parsed_course is not None:
-                    courses.append(parsed_course)
-                    if limit > 0 and len(courses) >= limit:
-                        break
+            courses.extend(
+                crawl_site(
+                    target_url,
+                    max_pages=max_pages,
+                    render=render,
+                    limit=limit,
+                )
+            )
 
         elapsed = time.perf_counter() - start_time
         needs_review_count = sum(1 for c in courses if c.needs_review)
