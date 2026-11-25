@@ -1,7 +1,7 @@
 """
 cli.py
 ==============================================================================
-Punto de entrada de línea de comandos para Cursodex (v0.2.0).
+Punto de entrada de línea de comandos para Cursodex (v0.3.0).
 
 Cumple estrictamente el contrato Unix:
 1. stdout: reservado para datos estructurados limpios (--output -).
@@ -30,7 +30,10 @@ from utils.logger import emit_run_summary, get_logger
 logger = get_logger(__name__)
 
 app = typer.Typer(
-    help="Cursodex Extractor CLI — Motor de extracción y normalización semántica de cursos.",
+    help=(
+        "Cursodex Extractor v0.3.0 — extracción sin estado de cursos gratuitos "
+        "(ms_learn, openlearn, aprende, netacad)."
+    ),
     pretty_exceptions_enable=False,
     add_completion=False,
     rich_markup_mode=None,
@@ -258,17 +261,44 @@ def _execute_scrape(
 
 @app.command("run")
 def run_command(
-    url: Annotated[str | None, typer.Option("--url", "-u", help="URL inicial para extraer o rastrear")] = None,
-    provider: Annotated[str | None, typer.Option("--provider", "-p", help="Forzar un adaptador por nombre")] = None,
-    output: Annotated[str, typer.Option("--output", "-o", help="Ruta del archivo de salida o '-' para stdout")] = "results.csv",
-    format_param: Annotated[str | None, typer.Option("--format", "-f", help="Formato de exportación ('csv' o 'jsonld')")] = None,
-    limit: Annotated[int, typer.Option("--limit", "-l", help="Límite máximo de cursos a extraer (0 = sin límite)")] = 0,
-    render: Annotated[bool, typer.Option("--render", help="Usar Playwright para renderizar páginas JavaScript")] = False,
-    enable_bfs: Annotated[bool, typer.Option("--enable-bfs", help="Habilitar rastreo genérico BFS si no hay adaptador")] = False,
-    enable_modules: Annotated[bool, typer.Option("--enable-modules", help="Habilitar extracción de micro-módulos")] = False,
-    max_pages: Annotated[int, typer.Option("--max-pages", help="Límite máximo de páginas a spider en BFS")] = 100,
+    url: Annotated[
+        str | None,
+        typer.Option("--url", "-u", help="URL de catálogo o curso; el dominio detecta el proveedor."),
+    ] = None,
+    provider: Annotated[
+        str | None,
+        typer.Option("--provider", "-p", help="Proveedor: ms_learn, openlearn, aprende o netacad."),
+    ] = None,
+    output: Annotated[
+        str,
+        typer.Option("--output", "-o", help="Archivo CSV/JSON-LD o '-' para stdout (JSON-LD por defecto)."),
+    ] = "results.csv",
+    format_param: Annotated[
+        str | None,
+        typer.Option("--format", "-f", help="csv o jsonld; si se omite, se infiere y '-' usa jsonld por defecto."),
+    ] = None,
+    limit: Annotated[
+        int,
+        typer.Option("--limit", "-l", help="Máximo de cursos válidos; 0 no limita."),
+    ] = 0,
+    render: Annotated[
+        bool,
+        typer.Option("--render", help="Renderizado JavaScript con Playwright; NetAcad siempre lo usa."),
+    ] = False,
+    enable_bfs: Annotated[
+        bool,
+        typer.Option("--enable-bfs", help="Activar BFS para sitios sin proveedor; apagado por defecto."),
+    ] = False,
+    enable_modules: Annotated[
+        bool,
+        typer.Option("--enable-modules", help="Incluir módulos de Microsoft Learn además de learningPaths."),
+    ] = False,
+    max_pages: Annotated[
+        int,
+        typer.Option("--max-pages", help="Máximo de páginas para el rastreador BFS genérico."),
+    ] = 100,
 ) -> None:
-    """Extrae y normaliza cursos desde un proveedor o URL hacia CSV o JSON-LD."""
+    """Extrae cursos de ms_learn, openlearn, aprende o netacad y exporta CSV/JSON-LD."""
     _execute_scrape(
         url=url,
         provider=provider,
@@ -285,17 +315,44 @@ def run_command(
 @app.callback(invoke_without_command=True)
 def main_callback(
     ctx: typer.Context,
-    url: Annotated[str | None, typer.Option("--url", "-u", help="URL inicial para extraer o rastrear")] = None,
-    provider: Annotated[str | None, typer.Option("--provider", "-p", help="Forzar un adaptador por nombre")] = None,
-    output: Annotated[str, typer.Option("--output", "-o", help="Ruta del archivo de salida o '-' para stdout")] = "results.csv",
-    format_param: Annotated[str | None, typer.Option("--format", "-f", help="Formato de exportación ('csv' o 'jsonld')")] = None,
-    limit: Annotated[int, typer.Option("--limit", "-l", help="Límite máximo de cursos a extraer (0 = sin límite)")] = 0,
-    render: Annotated[bool, typer.Option("--render", help="Usar Playwright para renderizar páginas JavaScript")] = False,
-    enable_bfs: Annotated[bool, typer.Option("--enable-bfs", help="Habilitar rastreo genérico BFS si no hay adaptador")] = False,
-    enable_modules: Annotated[bool, typer.Option("--enable-modules", help="Habilitar extracción de micro-módulos")] = False,
-    max_pages: Annotated[int, typer.Option("--max-pages", help="Límite máximo de páginas a spider en BFS")] = 100,
+    url: Annotated[
+        str | None,
+        typer.Option("--url", "-u", help="URL de catálogo o curso; el dominio detecta el proveedor."),
+    ] = None,
+    provider: Annotated[
+        str | None,
+        typer.Option("--provider", "-p", help="Proveedor: ms_learn, openlearn, aprende o netacad."),
+    ] = None,
+    output: Annotated[
+        str,
+        typer.Option("--output", "-o", help="Archivo CSV/JSON-LD o '-' para stdout (JSON-LD por defecto)."),
+    ] = "results.csv",
+    format_param: Annotated[
+        str | None,
+        typer.Option("--format", "-f", help="csv o jsonld; si se omite, se infiere y '-' usa jsonld por defecto."),
+    ] = None,
+    limit: Annotated[
+        int,
+        typer.Option("--limit", "-l", help="Máximo de cursos válidos; 0 no limita."),
+    ] = 0,
+    render: Annotated[
+        bool,
+        typer.Option("--render", help="Renderizado JavaScript con Playwright; NetAcad siempre lo usa."),
+    ] = False,
+    enable_bfs: Annotated[
+        bool,
+        typer.Option("--enable-bfs", help="Activar BFS para sitios sin proveedor; apagado por defecto."),
+    ] = False,
+    enable_modules: Annotated[
+        bool,
+        typer.Option("--enable-modules", help="Incluir módulos de Microsoft Learn además de learningPaths."),
+    ] = False,
+    max_pages: Annotated[
+        int,
+        typer.Option("--max-pages", help="Máximo de páginas para el rastreador BFS genérico."),
+    ] = 100,
 ) -> None:
-    """Punto de entrada general de Cursodex."""
+    """Punto de entrada general de Cursodex v0.3.0."""
     if ctx.invoked_subcommand is None:
         if url or provider:
             _execute_scrape(

@@ -2,7 +2,7 @@
 
 **Documento de Gobernanza y Plan Maestro de Implementación**  
 **Proyecto:** Cursodex — Repositorio Semántico e Índice de Cursos Gratuitos en Línea  
-**Versión:** 1.0.0 (Post-Paso 3)  
+**Versión:** 1.1.0 (Pasos 4A–4C completados)
 **Fecha de corte:** Noviembre 2026 | **Hito Final:** 30 de abril de 2027  
 **Referencias normativas:** [ARCHITECTURE.md](file:///c:/Users/Eddie%20Barillas/OneDrive%20-%20Veeva%20Systems,%20Inc/Documents/GitHub/cursos/ARCHITECTURE.md), [.agent/rules/cursodex.md](file:///c:/Users/Eddie%20Barillas/OneDrive%20-%20Veeva%20Systems,%20Inc/Documents/GitHub/cursos/.agent/rules/cursodex.md)
 
@@ -18,7 +18,7 @@ Cursodex es un catálogo académico abierto, semántico e interoperable que agre
 
 ```
 +---------------------------------------------------------------------------------------+
-| FUENTES EXTERNAS (Microsoft Learn, HubSpot Academy, Aprende.org, Cisco NetAcad)       |
+| FUENTES EXTERNAS (Microsoft Learn, OpenLearn, Aprende.org, Cisco NetAcad)              |
 +---------------------------------------------------------------------------------------+
                                            |
                                            v
@@ -51,14 +51,14 @@ Cursodex es un catálogo académico abierto, semántico e interoperable que agre
 
 ---
 
-## 2. Estado Actual Exacto del Repositorio (Snapshot Post-Paso 3)
+## 2. Estado Actual Exacto del Repositorio (Snapshot Post-Paso 4C)
 
 ### 2.1 Componentes 100% Terminados y Verificados en Producción
 
-El repositorio ha superado rigurosamente los **Pasos 1, 2 y 3**, auditado bajo pruebas de sistema operativo real con 0 advertencias y 0 errores:
+El repositorio ha superado los **Pasos 1, 2, 3 y 4A–4C**, con validación de pruebas de sistema operativo, lint y tipado:
 
 * **Gestión de Entorno y Gobernanza (`pyproject.toml`, `uv.lock`):**
-  * Entorno totalmente gestionado por `uv` (`link-mode = "copy"` y `package = false` para compatibilidad con Windows y OneDrive).
+  * Entorno totalmente gestionado por `uv` (`link-mode = "copy"`), con paquete instalable y versión de release `0.3.0`.
   * Dependencias fijadas y reproducibles para HTTP (`httpx`, `playwright`), extracción (`extruct`, `beautifulsoup4`, `lxml`, `lxml-html-clean`, `html5lib`), modelo (`pydantic`, `pyyaml`) y CLI (`typer`, `click`, `typing-extensions`).
   * Dependencias de desarrollo completas (`pytest`, `pytest-httpx`, `respx`, `ruff`, `mypy`).
 
@@ -89,29 +89,25 @@ El repositorio ha superado rigurosamente los **Pasos 1, 2 y 3**, auditado bajo p
   * Control de excepciones Click/Typer: captura `click.ClickException` para evitar la colisión nativa de código 2 de Click y anula el markup Rich (`rich_markup_mode=None`) para prevenir escapes ANSI en tuberías.
   * Invocación sin argumentos: emite mensaje a `stderr` con código 1 sin escribir en `stdout`.
 
-* **Calidad y Tests (Suite Completa Pasando):**
-  * `pytest`: 35 tests automatizados pasando al 100%, incluyendo pruebas unitarias de modelos, exportadores y pruebas reales de subproceso en el sistema operativo.
-  * `ruff`: 0 errores de estilo o linting.
-  * `mypy`: 0 errores de tipado estático en los 19 archivos del proyecto.
+* **Calidad y Tests:** Suite de modelos, proveedores, exportadores y subprocesos del CLI, con verificación de Ruff y mypy incluyendo `tests/`.
 
 ---
 
-### 2.2 Archivos en Estado Transicional (Esperando el Paso 4)
+### 2.2 Cierre de los Pasos 4A, 4B y 4C
 
-Los siguientes módulos son funcionales a nivel de estructura pero contienen lógica provisional que será refactorizada o reemplazada durante el Paso 4:
+| Paso | Alcance | Estado |
+|---|---|---|
+| **4A** | Infraestructura `extruct`, parser semántico y ciclo de vida HTTP/Playwright | **Completado** |
+| **4B** | Adaptador Microsoft Learn, base de proveedor y prueba de HubSpot | **Completado**; Microsoft Learn permanece activo |
+| **4C** | OpenLearn, saneamiento de Aprende.org y NetAcad, cobertura offline y documentación | **Completado** |
 
-* `core/parser.py`: Contiene lógica básica de parsing basada en `BeautifulSoup4`. Se mantendrá como capa secundaria/fallback, cediendo la extracción semántica primaria a `core/extractor.py` con `extruct`.
-* `core/crawler.py`: Cuenta con cortesía básica y reuso estático de cliente HTTP, pero requiere la gestión centralizada de una única instancia de Playwright por corrida de scraping dinámico y el filtro de extensiones binarias.
-* `providers/aprende.py`: Implementa la conexión directa a la API JSON privada de Aprende.org, pendiente de integrar tipado estricto, manejo desacoplado de errores 401/403 y tests con mocks.
-* `providers/netacad.py`: Contiene parsing de sitemap y scraping dinámico con Playwright, pendiente de unificar el ciclo de vida del navegador y extraer desde el catálogo SPA renderizado sin consultar rutas 403.
-* `providers/hubspot.py`: Stub mínimo con scrapers de prueba, pendiente de implementar la cosecha por sitemap XML filtrando rutas en español y extracción con `extruct`.
-* `providers/cognitiveclass.py`: Retirado del árbol activo de Git y reubicado en `legacy/cognitiveclass.py`.
+El catálogo v1 queda limitado a cuatro proveedores operativos: `ms_learn`, `openlearn`, `aprende` y `netacad`. HubSpot Academy se movió a `legacy/` y está excluido del tracking: su sitemap ya no publicaba rutas `/courses/` y la shell SPA española no ofrecía metadatos de curso utilizables en estático.
 
 ---
 
 ## 3. Especificación Detallada del Paso 4 (Cierre del Hito 1 — Límite: 31/01/2027)
 
-El Paso 4 completa los adaptadores de proveedores reales y la infraestructura semántica primaria de extracción. **No se deben modificar los contratos de `Course`, `vocab_map.yml`, `exporters/` ni `cli.py`**, los cuales ya son estables.
+El Paso 4 completa los adaptadores de proveedores reales y la infraestructura semántica primaria de extracción. Los contratos de exportación y CLI se conservan; el vocabulario y la precedencia de categorías se ajustaron quirúrgicamente para la clasificación real de Microsoft Learn.
 
 ### 3.1 `core/extractor.py` (Nuevo Módulo) y Refactor de `core/parser.py`
 
@@ -144,79 +140,29 @@ El Paso 4 completa los adaptadores de proveedores reales y la infraestructura se
    * En `crawl_site()`, cuando `--enable-bfs` esté activo, descartar enlaces que terminen en extensiones estáticas o binarias:
      `{".pdf", ".jpg", ".jpeg", ".png", ".gif", ".svg", ".zip", ".rar", ".tar", ".gz", ".exe", ".mp4", ".mp3", ".docx", ".xlsx", ".pptx"}`.
 
-### 3.3 Especificación de los 4 Proveedores v1
+### 3.3 Proveedores v1 implementados
 
-#### Proveedor 1: Microsoft Learn (`providers/ms_learn.py` — Crear desde cero)
-* **Estrategia:** Consulta vía `httpx` a la API REST pública de catálogo:
-  `https://learn.microsoft.com/api/catalog/?locale=es-es`
-* **Regla de Alcance:** **Extraer únicamente `learningPaths`** por defecto (rutas de aprendizaje estructuradas con insignia). Solo si el CLI recibe el flag `--enable-modules`, se extraerán también los micro-módulos atómicos (`modules`).
-* **Mapeo al Modelo `Course`:**
-  * `name`: `item["title"]` (limpio con `clean_text_field`).
-  * `description`: `item["summary"]` (acotado a 350 caracteres).
-  * `url`: `item["url"]`.
-  * `canonical_url`: autocalculada (`https://learn.microsoft.com/es-es/training/paths/...`).
-  * `provider`: `"Microsoft Learn"`.
-  * `time_required`: mapear `duration_in_minutes` (con fallback a `durationInMinutes`) a formato ISO 8601 mediante `format_iso_duration_minutes()` (ej. `180` -> `"PT3H"`).
-  * `educational_level`: mapear `item.get("levels", [])` (ej. `"beginner"` -> `"Principiante"`).
-  * `keywords`: unir `item.get("products", [])` + `item.get("roles", [])` + `item.get("subjects", [])`.
-  * `in_language`: `"es"`.
-  * `access_type`: `AccessType.free_with_certificate` (Microsoft Learn emite insignias digitales verificables gratuitas vinculadas al perfil).
-  * `image`: `item.get("icon_url")`.
+| Proveedor | Estrategia activa | Reglas de extracción relevantes |
+|---|---|---|
+| **Microsoft Learn** (`ms_learn.py`) | API REST de catálogo | `learningPaths` por defecto; `modules` solo con `--enable-modules`. La categoría se prioriza por `subjects`, `products`, `roles` y, finalmente, título; los slugs pasan a etiquetas limpias. |
+| **OpenLearn** (`openlearn.py`) | Sitemap de cursos `.xml.gz`, índice XML y catálogo paginado de respaldo | Una ficha individual se procesa directamente. En catálogo, las fichas pasan por `extruct` y luego OpenGraph/DOM; el certificado requiere evidencia explícita en el HTML. |
+| **Aprende.org** (`aprende.py`) | API JSON pública con `Crawler` | Detalle consultado perezosamente solo para los cursos que se emitirán; descripción ausente permanece `None`. HTTP/JSON inválidos se reportan como errores técnicos. |
+| **Cisco NetAcad** (`netacad.py`) | Playwright sobre catálogo SPA | Espera los enlaces renderizados y emite solo tarjetas con `Price: Free` o `Gratis`; no consulta `cperf.netacad.com`. |
 
-#### Proveedor 2: HubSpot Academy (`providers/hubspot.py` — Completar stub)
-* **Estrategia:**
-  1. Cosecha de sitemap XML: descargar `https://academy.hubspot.com/sitemap.xml`.
-  2. Filtrado: seleccionar exclusivamente URLs de cursos en español (`/es/courses/` o `/courses/` con tag en español).
-  3. Extracción: consulta estática con `httpx` y procesamiento mediante `extruct` para capturar el bloque JSON-LD nativo `schema:Course`.
-* **Mapeo al Modelo `Course`:**
-  * `provider`: `"HubSpot Academy"`.
-  * `in_language`: `"es"`.
-  * `access_type`: `AccessType.free_with_certificate` (HubSpot emite certificados oficiales gratuitos).
-  * `category`: resuelto contra `mappings/vocab_map.yml` (típicamente `"Marketing Digital y Comercio Electrónico"` o `"Administración de Empresas y Derecho"`).
+HubSpot Academy se retiró a `legacy/` después de que el sondeo confirmara que su sitemap ya no publicaba rutas `/courses/` y la shell HTML española carecía de datos estáticos de curso.
 
-#### Proveedor 3: Aprende.org (`providers/aprende.py` — Sanear y validar)
-* **Estrategia:** Consulta a la API JSON privada de backend:
-  `https://besvc.capacitateparaelempleo.org/api/Courses?platformId=2`
-* **Mapeo al Modelo `Course`:**
-  * `name`: `item["name"]`.
-  * `description`: `item["description"]`.
-  * `url`: `https://aprende.org/cursos/view/{item["id"]}`.
-  * `provider`: `"Aprende.org (Fundación Carlos Slim)"`.
-  * `category`: sector del curso (`item["sector"]["name"]`) procesado a través de `resolve_category()`.
-  * `keywords`: agregación de competencias (`item["competences"]`) y catálogos.
-  * `in_language`: `"es"`.
-  * `access_type`: `AccessType.free_with_certificate` (diplomas y certificados con validez curricular gratuitos).
-* **Control de Errores:** Si la API devuelve HTTP 401, 403 o falla la conexión, registrar el fallo con el logger, emitir `run_summary` con `exit_code: 1` y salir limpiamente con código 1. **No forzar `needs_review=True` en tiempo de scraping.**
+### 3.4 Suite offline y criterios de aceptación
 
-#### Proveedor 4: Cisco Networking Academy (`providers/netacad.py` — Sanear y validar)
-* **Estrategia:**
-  * Utilizar Playwright con el contexto reutilizado para renderizar el catálogo SPA oficial en `https://www.netacad.com/catalogs/learn?category=course`.
-  * Extraer los enlaces de detalle y procesar cada página renderizada con `extruct` + fallback DOM.
-  * **Evitar URLs bloqueadas:** No intentar hacer peticiones estáticas directas hacia `cperf.netacad.com` (responde HTTP 403 a bots).
-* **Inferencia Rigurosa de `access_type`:**
-  * Si el curso es de autoaprendizaje (*self-paced*) y la página indica certificado de finalización o insignia digital gratuita de Credly -> `AccessType.free_with_certificate`.
-  * Si el curso es gratuito pero no otorga certificado ni insignia -> `AccessType.free_no_certificate`.
-  * **Distinción crítica:** No confundir certificados de finalización de curso con exámenes de certificación industrial externa (ej. CCNA, CCNP, DevNet Associate), que son de pago y requieren voucher presencial.
-
-#### Plan B de Contingencia: OpenLearn (The Open University)
-* **Condición de activación:** Si Aprende.org o Cisco NetAcad aplican bloqueos de Cloudflare Turnstile o vetos de IP que impidan la extracción automatizada en CI/CD o VPS.
-* **Fuente:** `https://www.open.edu/openlearn/free-courses/full-catalogue`
-* **Mapeo:** Cosecha vía sitemap XML + extracción con `extruct` (OpenLearn implementa Schema.org Course estándar completo). Otorga certificados de participación gratuitos (`AccessType.free_with_certificate`).
-
-### 3.4 Suite de Pruebas `tests/test_providers.py` y Criterios de Aceptación
-
-1. **Aislamiento Total de Red en CI:**
-   * Las pruebas unitarias de `test_providers.py` deben usar `respx` o `pytest-httpx` con respuestas HTML y JSON reales previamente grabadas en `tests/fixtures/`.
-   * Queda terminantemente prohibido hacer peticiones HTTP reales durante la ejecución de `pytest` estándar.
-2. **Pruebas en Vivo Acotadas (Smoke Tests Manuales):**
-   * Verificación manual interactiva ejecutando límites cortos contra `stdout`:
-     ```bash
-     uv run cursodex run --provider mslearn --limit 3 --output -
-     uv run cursodex run --provider hubspot --limit 3 --output -
-     uv run cursodex run --provider aprende --limit 3 --output -
-     uv run cursodex run --provider netacad --limit 3 --output -
-     ```
-   * Criterio de éxito: `stdout` contiene exactamente un array JSON válido con 3 objetos conformes a Omeka S v4+, y `stderr` contiene el `run_summary` con `"exit_code": 0`.
+* `tests/test_providers.py` cubre los cuatro proveedores con mocks HTTP/Playwright y cortesía puesta a cero en pruebas; la suite estándar no accede a Internet.
+* Criterios de aceptación: `uv run pytest -v`, `uv run ruff check .` y `uv run mypy cli.py config.py schemas/ exporters/ utils/ core/ providers/ tests/` sin errores.
+* Los smoke tests manuales de proveedor ejecutan:
+  ```bash
+  uv run cursodex run -p ms_learn --limit 3 --output -
+  uv run cursodex run -p openlearn --limit 3 --output -
+  uv run cursodex run -p aprende --limit 3 --output -
+  uv run cursodex run -p netacad --limit 3 --output -
+  ```
+  Cada ejecución debe producir JSON-LD válido en `stdout` y un `run_summary` en `stderr`; `exit_code: 0` requiere al menos un curso válido.
 
 ---
 
@@ -248,9 +194,10 @@ Ene 2027              Feb 2027              Mar 2027              Abr 2027
 ### Hito 1 (Fecha Límite: 31/01/2027) — Finalización del Extractor y Preparación de Omeka S
 
 * **En este repositorio (`cursos`):**
-  * Implementar `core/extractor.py` con `extruct`.
-  * Completar los 4 proveedores (`ms_learn.py`, `hubspot.py`, `aprende.py`, `netacad.py`).
-  * Validar 100% de tests unitarios y estáticos (`uv run pytest`, `uv run ruff check .`, `uv run mypy ...`).
+  * Infraestructura `core/extractor.py` con `extruct` y crawler compartido completados.
+  * Proveedores v1 completados: `ms_learn.py`, `openlearn.py`, `aprende.py` y `netacad.py`.
+  * HubSpot retirado a `legacy/` por ausencia de fichas estáticas aprovechables.
+  * Validar pruebas y análisis estático con los comandos del §3.4.
 * **En el Servidor de Omeka S (`cursodex.com/omekas/`):**
   * **Ontologías:** Importar vocabulario oficial `Schema.org` (ontología RDF completa) y activar `Dublin Core` nativo.
   * **Módulos Oficiales y Open-Source a Instalar:**
@@ -415,7 +362,7 @@ El desarrollo del pipeline de orquestación se realiza inicialmente en local con
 
 | Riesgo Técnico | Severidad | Probabilidad | Plan de Mitigación |
 | :--- | :---: | :---: | :--- |
-| **Bloqueo antibot en CI/VPS (403/Cloudflare)** en Aprende o NetAcad | Alta | Media | Desacoplar scraping hacia GitHub Actions (IPs rotativas). Si persiste, activar el **Plan B (OpenLearn - Open University)** vía sitemap + JSON-LD. |
+| **Bloqueo antibot en CI/VPS (403/Cloudflare)** en Aprende o NetAcad | Alta | Media | Ejecutar desde un worker desacoplado; OpenLearn queda como proveedor activo complementario basado en sitemap y extracción estática. |
 | **Colapso de RAM en VPS** por procesos huérfanos de Chromium | Alta | Media | Configurar Playwright context manager reutilizable, asignar Swap de 2GB en VPS y ejecutar Playwright prioritariamente en runners externos de CI. |
 | **Borrado accidental de metadatos en Omeka S** por actualizaciones | Crítica | Baja | Obligatoriedad estricta del patrón **Read-Merge-PUT** en n8n (`GET` ítem completo previo a cualquier actualización; prohibido `PATCH`). |
 | **Contaminación semántica de facetas** con `"Pendiente_Categoria"` | Media | Alta | Regla activa en `exporters/`: omisión de `schema:about` y `dcterms:subject` en el RDF público cuando no hay match formal; resolución en moderación. |

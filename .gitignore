@@ -60,6 +60,3 @@ docs/html/
 
 # Legacy scripts — se mantienen en disco pero NO en Git
 legacy/
-
-# Log de ejecuciones del scraper
-scraper_runs.log

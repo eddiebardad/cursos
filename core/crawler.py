@@ -168,6 +168,23 @@ class Crawler:
             with self.open_page(url) as page:
                 return page.content()
 
+        return self._get_http_response(url, headers, **kwargs).text
+
+    def get_bytes(
+        self,
+        url: str,
+        headers: dict[str, str] | None = None,
+        **kwargs: Any,
+    ) -> bytes:
+        """Fetch response bytes using the shared HTTP client and request policy."""
+        return self._get_http_response(url, headers, **kwargs).content
+
+    def _get_http_response(
+        self,
+        url: str,
+        headers: dict[str, str] | None,
+        **kwargs: Any,
+    ) -> httpx.Response:
         self._wait_for_courtesy_delay()
         merged_headers = {**self.headers, **(headers or {})}
         try:
@@ -181,7 +198,7 @@ class Crawler:
                 ) as client:
                     response = client.get(url, **kwargs)
             response.raise_for_status()
-            return response.text
+            return response
         except httpx.RequestError as exc:
             raise NetworkError(f"Request failed for {url}: {exc}") from exc
         except httpx.HTTPStatusError as exc:

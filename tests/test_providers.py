@@ -1,17 +1,28 @@
 from __future__ import annotations
 
+import gzip
 import json
+from collections.abc import Iterator
+from contextlib import contextmanager
+from typing import Any
 
 import httpx
 import pytest
 import respx
 
 from config import config
-from core.exceptions import NetworkError
+from core.crawler import Crawler
+from core.exceptions import NetworkError, ParsingError
 from providers import get_provider_by_name
-from providers.hubspot import HubspotProvider
+from providers.aprende import AprendeProvider
 from providers.ms_learn import MicrosoftLearnProvider
+from providers.netacad import NetacadProvider
+from providers.openlearn import OpenLearnProvider
 from schemas.models import AccessType
+
+_APRENDE_CATALOG_URL = (
+    "https://besvc.capacitateparaelempleo.org/api/Courses?platformId=2"
+)
 
 
 def _course_item(
@@ -21,6 +32,9 @@ def _course_item(
     duration: int = 90,
     level: str = "beginner",
     locale: str = "es-es",
+    products: list[str] | None = None,
+    roles: list[str] | None = None,
+    subjects: list[str] | None = None,
 ) -> dict[str, object]:
     return {
         "title": title,
@@ -28,24 +42,12 @@ def _course_item(
         "summary": "A complete course description with practical learning objectives.",
         "duration_in_minutes": duration,
         "levels": [level],
-        "products": ["azure"],
-        "roles": ["cloud-admin"],
-        "subjects": ["cloud-computing"],
+        "products": products if products is not None else ["azure"],
+        "roles": roles if roles is not None else ["cloud-admin"],
+        "subjects": subjects if subjects is not None else ["cloud-computing"],
         "locale": locale,
         "icon_url": "/images/course.svg",
     }
-
-
-def _hubspot_course_html(title: str, url: str) -> str:
-    structured = {
-        "@context": "https://schema.org",
-        "@type": "Course",
-        "name": title,
-        "url": url,
-        "description": "A practical course description with clear learning outcomes.",
-        "inLanguage": "es",
-    }
-    return f'<script type="application/ld+json">{json.dumps(structured)}</script>'
 
 
 def _sitemap_urlset(urls: list[str]) -> str:
@@ -53,11 +55,115 @@ def _sitemap_urlset(urls: list[str]) -> str:
     return f'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{locations}</urlset>'
 
 
-def test_provider_aliases_resolve_microsoft_learn_and_hubspot() -> None:
+def _openlearn_course_html(
+    title: str = "OpenLearn Course",
+    *,
+    credential: str = "Free statement of participation on completion",
+) -> str:
+    return f"""<!doctype html>
+    <html lang="en">
+      <head>
+        <meta property="og:title" content="{title}">
+        <meta property="og:description" content="A free course description with useful learning outcomes and details.">
+        <meta property="og:image" content="/images/openlearn-course.jpg">
+      </head>
+      <body>
+        <nav aria-label="Breadcrumb">
+          <a>Subjects</a> &gt; <a>Health, Sports &amp; Psychology</a> &gt;
+          <a>Free courses</a> &gt; <span>{title}</span>
+        </nav>
+        <h1>{title}</h1>
+        <div>8 hours study</div>
+        <h4>Level 1: Introductory</h4>
+        <div class="free-statement-block">{credential}</div>
+      </body>
+    </html>"""
+
+
+def _aprende_item(
+    course_id: int,
+    *,
+    description: str | None = "Descripción completa para probar los objetivos de aprendizaje.",
+) -> dict[str, Any]:
+    item: dict[str, Any] = {
+        "id": course_id,
+        "name": f"Curso Aprende {course_id}",
+        "imageUrl": "/images/aprende.jpg",
+        "difficultyId": 2,
+        "sector": {"name": "Agropecuario"},
+        "competences": [{"name": "Cultivo"}],
+        "catalogs": [],
+        "linkCourses": [],
+    }
+    if description is not None:
+        item["description"] = description
+    return item
+
+
+def _netacad_card(
+    slug: str,
+    title: str,
+    *,
+    price: str | None,
+    duration: str = "6 Hours",
+    level: str = "Beginner",
+    credential: str = "",
+) -> str:
+    price_html = f"<span>Price:<span>{price}</span></span>" if price is not None else ""
+    return f"""
+    <a class="cardContainer card" href="/courses/{slug}?courseLang=en-US"
+       aria-label="{title}. A useful description of the course content.">
+      <div role="heading" aria-level="3">{title}</div>
+      <div class="description--card" title="A useful description of the course content.">
+        A useful description of the course content.
+      </div>
+      <span>Duration:<span>{duration}</span></span>
+      {price_html}
+      <span>Difficulty level:<span>{level}</span></span>
+      <span>{credential}</span>
+    </a>"""
+
+
+class _FakePage:
+    def __init__(self, html: str, wait_timeouts: list[int]) -> None:
+        self.html = html
+        self.wait_timeouts = wait_timeouts
+
+    def wait_for_function(self, expression: str, timeout: int) -> None:
+        self.wait_timeouts.append(timeout)
+
+    def content(self) -> str:
+        return self.html
+
+
+def _mock_netacad_page(
+    monkeypatch: pytest.MonkeyPatch,
+    html: str,
+) -> tuple[list[str], list[int]]:
+    opened_urls: list[str] = []
+    wait_timeouts: list[int] = []
+
+    @contextmanager
+    def fake_open_page(
+        crawler: Crawler,
+        url: str,
+        wait_until: str = "domcontentloaded",
+    ) -> Iterator[_FakePage]:
+        opened_urls.append(url)
+        yield _FakePage(html, wait_timeouts)
+
+    monkeypatch.setattr(Crawler, "open_page", fake_open_page)
+    return opened_urls, wait_timeouts
+
+
+def test_provider_aliases_resolve_all_four_active_providers() -> None:
     assert isinstance(get_provider_by_name("ms_learn"), MicrosoftLearnProvider)
     assert isinstance(get_provider_by_name("mslearn"), MicrosoftLearnProvider)
-    assert isinstance(get_provider_by_name("MicrosoftLearn"), MicrosoftLearnProvider)
-    assert isinstance(get_provider_by_name("hubspot"), HubspotProvider)
+    assert isinstance(get_provider_by_name("OpenLearn"), OpenLearnProvider)
+    assert isinstance(get_provider_by_name("open_learn"), OpenLearnProvider)
+    assert isinstance(get_provider_by_name("aprende"), AprendeProvider)
+    assert isinstance(get_provider_by_name("netacad"), NetacadProvider)
+    assert get_provider_by_name("hubspot") is None
 
 
 def test_ms_learn_defaults_to_learning_paths_and_maps_course_fields(
@@ -94,12 +200,27 @@ def test_ms_learn_defaults_to_learning_paths_and_maps_course_fields(
     assert course.educational_level == "Principiante"
     assert course.in_language == "es"
     assert course.access_type is AccessType.free_with_certificate
-    assert course.keywords == ["cloud computing", "cloud admin", "azure"]
+    assert course.keywords == ["cloud computing", "azure", "cloud admin"]
     assert course.category == "Redes, Cloud y Ciberseguridad"
     assert route.call_count == 1
     request = route.calls[0].request
     assert request.url.params["locale"] == "es-es"
     assert request.url.params["type"] == "learningPaths"
+
+
+def test_ms_learn_prioritizes_cloud_products_over_generic_roles() -> None:
+    item = _course_item(
+        "Migración de datos y cargas de trabajo de aplicación a Azure",
+        "https://learn.microsoft.com/es-es/training/paths/azure-migration",
+        products=["azure", "azure-sql-database"],
+        roles=["data-engineer", "solution-architect"],
+        subjects=[],
+    )
+
+    course = MicrosoftLearnProvider._map_to_course(item, "es-es")
+
+    assert course is not None
+    assert course.category == "Redes, Cloud y Ciberseguridad"
 
 
 def test_ms_learn_can_include_modules_and_uses_duration_fallback(
@@ -215,138 +336,281 @@ def test_ms_learn_propagates_http_errors_as_network_errors(
             list(provider.scrape(provider.default_url or ""))
 
 
-def test_hubspot_urlset_filters_to_requested_spanish_course_pages(
+def test_openlearn_decompresses_gzip_and_maps_real_course_metadata(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(config, "COURTESY_DELAY", 0.0)
-    course_url = "https://academy.hubspot.com/es/courses/inbound-marketing"
-    urls = [
-        "https://academy.hubspot.com/es/courses",
-        course_url,
-        "https://academy.hubspot.com/es/courses/tag/marketing",
-        "https://academy.hubspot.com/en/courses/inbound-marketing",
-    ]
+    course_url = (
+        "https://www.open.edu/openlearn/health-sports-psychology/openlearn-course"
+    )
+    sitemap = gzip.compress(_sitemap_urlset([course_url]).encode("utf-8"))
 
     with respx.mock:
-        sitemap_route = respx.get(HubspotProvider.sitemap_url).mock(
-            return_value=httpx.Response(200, text=_sitemap_urlset(urls))
+        sitemap_route = respx.get(OpenLearnProvider.course_sitemap_url).mock(
+            return_value=httpx.Response(200, content=sitemap)
         )
         course_route = respx.get(course_url).mock(
-            return_value=httpx.Response(
-                200,
-                text=_hubspot_course_html("Inbound Marketing", course_url),
-            )
+            return_value=httpx.Response(200, text=_openlearn_course_html())
         )
-        provider = HubspotProvider()
-        courses = list(provider.scrape(provider.default_url or ""))
+        provider = OpenLearnProvider()
+        courses = list(provider.scrape(provider.default_url, limit=1))
 
     assert len(courses) == 1
-    assert courses[0].name == "Inbound Marketing"
-    assert courses[0].provider == "HubSpot Academy"
-    assert courses[0].access_type is AccessType.free_with_certificate
+    course = courses[0]
+    assert course.name == "OpenLearn Course"
+    assert course.provider == "OpenLearn (The Open University)"
+    assert course.description == "A free course description with useful learning outcomes and details."
+    assert course.time_required == "PT8H"
+    assert course.educational_level == "Principiante"
+    assert course.in_language == "en"
+    assert course.category == "Salud y Bienestar"
+    assert course.access_type is AccessType.free_with_certificate
+    assert "fallback DOM" not in " ".join(course.review_notes)
     assert sitemap_route.call_count == 1
     assert course_route.call_count == 1
 
 
-def test_hubspot_sitemap_index_is_lazy_and_limit_stops_remaining_requests(
+def test_openlearn_resolves_course_sitemap_from_index(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(config, "COURTESY_DELAY", 0.0)
-    sitemap_part_one = "https://academy.hubspot.com/sitemap-courses-1.xml"
-    sitemap_part_two = "https://academy.hubspot.com/sitemap-courses-2.xml"
-    first_url = "https://academy.hubspot.com/es/courses/first"
-    second_url = "https://academy.hubspot.com/es/courses/second"
-    third_url = "https://academy.hubspot.com/es/courses/third"
+    child_sitemap = (
+        "https://www.open.edu/openlearn/pluginfile.php/1/local_ocwsitemap/"
+        "sitemap/0/courses_sitemap.xml.gz"
+    )
+    course_url = "https://www.open.edu/openlearn/health-sports-psychology/index-course"
     index = (
         '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
-        f"<sitemap><loc>{sitemap_part_one}</loc></sitemap>"
-        f"<sitemap><loc>{sitemap_part_two}</loc></sitemap>"
-        "</sitemapindex>"
+        f"<sitemap><loc>{child_sitemap}</loc></sitemap></sitemapindex>"
     )
 
     with respx.mock:
-        index_route = respx.get(HubspotProvider.sitemap_url).mock(
+        child_route = respx.get(OpenLearnProvider.course_sitemap_url).mock(
+            side_effect=[
+                httpx.Response(503, text="Unavailable"),
+                httpx.Response(
+                    200,
+                    content=gzip.compress(_sitemap_urlset([course_url]).encode("utf-8")),
+                ),
+            ]
+        )
+        index_route = respx.get(OpenLearnProvider.sitemap_index_url).mock(
             return_value=httpx.Response(200, text=index)
         )
-        part_one_route = respx.get(sitemap_part_one).mock(
-            return_value=httpx.Response(200, text=_sitemap_urlset([first_url, second_url]))
+        course_route = respx.get(course_url).mock(
+            return_value=httpx.Response(200, text=_openlearn_course_html("Indexed Course"))
         )
-        part_two_route = respx.get(sitemap_part_two).mock(
-            return_value=httpx.Response(200, text=_sitemap_urlset([third_url]))
-        )
-        first_route = respx.get(first_url).mock(
-            return_value=httpx.Response(200, text=_hubspot_course_html("First", first_url))
-        )
-        second_route = respx.get(second_url).mock(
-            return_value=httpx.Response(200, text=_hubspot_course_html("Second", second_url))
-        )
-        third_route = respx.get(third_url).mock(
-            return_value=httpx.Response(200, text=_hubspot_course_html("Third", third_url))
-        )
+        courses = list(OpenLearnProvider().scrape(OpenLearnProvider.default_url, limit=1))
 
-        provider = HubspotProvider()
-        courses = list(provider.scrape(provider.default_url or "", limit=1))
-
-    assert [course.name for course in courses] == ["First"]
+    assert [course.name for course in courses] == ["Indexed Course"]
+    assert child_route.call_count == 2
     assert index_route.call_count == 1
-    assert part_one_route.call_count == 1
-    assert part_two_route.call_count == 0
-    assert first_route.call_count == 1
-    assert second_route.call_count == 0
-    assert third_route.call_count == 0
+    assert course_route.call_count == 1
 
 
-def test_hubspot_individual_course_url_uses_extruct_defaults(
+def test_openlearn_falls_back_to_paginated_catalog_and_stops_at_limit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(config, "COURTESY_DELAY", 0.0)
-    course_url = "https://academy.hubspot.com/fr/courses/marketing"
+    catalog_url = OpenLearnProvider.default_url
+    first_url = "https://www.open.edu/openlearn/health-sports-psychology/first-course"
+    second_url = "https://www.open.edu/openlearn/science-maths-technology/second-course"
+    catalog_page = (
+        '<a href="/openlearn/health-sports-psychology/first-course/content-section-0?active-tab=description-tab">First</a>'
+        '<a href="/openlearn/science-maths-technology/second-course/content-section-overview">Second</a>'
+    )
+    page_zero = OpenLearnProvider._catalog_page_url(catalog_url, 0)
+    page_one = OpenLearnProvider._catalog_page_url(catalog_url, 1)
 
     with respx.mock:
-        course_route = respx.get(course_url).mock(
+        respx.get(OpenLearnProvider.course_sitemap_url).mock(
+            return_value=httpx.Response(503, text="Unavailable")
+        )
+        respx.get(OpenLearnProvider.sitemap_index_url).mock(
+            return_value=httpx.Response(503, text="Unavailable")
+        )
+        catalog_route = respx.get(page_zero).mock(
+            return_value=httpx.Response(200, text=catalog_page)
+        )
+        unused_page_route = respx.get(page_one).mock(
+            return_value=httpx.Response(200, text="")
+        )
+        first_route = respx.get(first_url).mock(
+            return_value=httpx.Response(200, text=_openlearn_course_html("First Course"))
+        )
+        second_route = respx.get(second_url).mock(
+            return_value=httpx.Response(200, text=_openlearn_course_html("Second Course"))
+        )
+        courses = list(OpenLearnProvider().scrape(catalog_url, limit=1))
+
+    assert [course.name for course in courses] == ["First Course"]
+    assert catalog_route.call_count == 1
+    assert unused_page_route.call_count == 0
+    assert first_route.call_count == 1
+    assert second_route.call_count == 0
+
+
+def test_openlearn_individual_course_does_not_fetch_sitemaps(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(config, "COURTESY_DELAY", 0.0)
+    url = "https://www.open.edu/openlearn/health-sports-psychology/single-course"
+
+    with respx.mock:
+        course_route = respx.get(url).mock(
             return_value=httpx.Response(
                 200,
-                text=_hubspot_course_html("Marketing", course_url),
+                text=_openlearn_course_html(
+                    "Single Course",
+                    credential="No credential information on this page.",
+                ),
             )
         )
-        sitemap_route = respx.get(HubspotProvider.sitemap_url).mock(
+        sitemap_route = respx.get(OpenLearnProvider.course_sitemap_url).mock(
             return_value=httpx.Response(500)
         )
-        provider = HubspotProvider()
-        courses = list(provider.scrape(course_url))
+        courses = list(OpenLearnProvider().scrape(url))
 
-    assert len(courses) == 1
-    assert courses[0].provider == "HubSpot Academy"
-    assert courses[0].access_type is AccessType.free_with_certificate
+    assert [course.name for course in courses] == ["Single Course"]
+    assert courses[0].access_type is AccessType.free_no_certificate
     assert course_route.call_count == 1
     assert sitemap_route.call_count == 0
 
 
-def test_hubspot_falls_back_to_catalog_links_when_sitemap_fails(
+def test_aprende_maps_catalog_course_and_uses_repository_user_agent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(config, "COURTESY_DELAY", 0.0)
-    catalog_url = "https://academy.hubspot.com/es/courses"
-    course_url = "https://academy.hubspot.com/es/courses/course-from-catalog"
-    catalog_html = '<a href="/es/courses/course-from-catalog">Course</a>'
+    payload = {"courses": [_aprende_item(101)], "links": []}
 
     with respx.mock:
-        sitemap_route = respx.get(HubspotProvider.sitemap_url).mock(
-            return_value=httpx.Response(503)
+        route = respx.get(_APRENDE_CATALOG_URL).mock(
+            return_value=httpx.Response(200, json=payload)
         )
-        catalog_route = respx.get(catalog_url).mock(
-            return_value=httpx.Response(200, text=catalog_html)
-        )
-        course_route = respx.get(course_url).mock(
-            return_value=httpx.Response(
-                200,
-                text=_hubspot_course_html("Catalog Course", course_url),
-            )
-        )
-        provider = HubspotProvider()
-        courses = list(provider.scrape(catalog_url, limit=1))
+        courses = list(AprendeProvider().scrape(AprendeProvider.default_url))
 
-    assert [course.name for course in courses] == ["Catalog Course"]
-    assert sitemap_route.call_count == 1
-    assert catalog_route.call_count == 1
-    assert course_route.call_count == 1
+    assert len(courses) == 1
+    course = courses[0]
+    assert course.name == "Curso Aprende 101"
+    assert course.provider == "Aprende.org (Fundación Carlos Slim)"
+    assert course.in_language == "es"
+    assert course.access_type is AccessType.free_with_certificate
+    assert course.educational_level == "Intermedio"
+    assert course.description == "Descripción completa para probar los objetivos de aprendizaje."
+    assert course.keywords == ["Cultivo"]
+    assert route.calls[0].request.headers["user-agent"] == config.USER_AGENT
+
+
+def test_aprende_detail_is_lazy_and_missing_description_stays_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(config, "COURTESY_DELAY", 0.0)
+    detail_one = "https://besvc.capacitateparaelempleo.org/api/Courses/201?platformId=2"
+    detail_two = "https://besvc.capacitateparaelempleo.org/api/Courses/202?platformId=2"
+    payload = {"courses": [_aprende_item(201, description=None), _aprende_item(202, description=None)]}
+
+    with respx.mock:
+        respx.get(_APRENDE_CATALOG_URL).mock(
+            return_value=httpx.Response(200, json=payload)
+        )
+        detail_one_route = respx.get(detail_one).mock(
+            return_value=httpx.Response(200, json={"id": 201, "name": "Curso Aprende 201"})
+        )
+        detail_two_route = respx.get(detail_two).mock(
+            return_value=httpx.Response(200, json={"id": 202, "name": "Curso Aprende 202"})
+        )
+        courses = list(AprendeProvider().scrape(AprendeProvider.default_url, limit=1))
+
+    assert len(courses) == 1
+    assert courses[0].description is None
+    assert courses[0].needs_review is True
+    assert detail_one_route.call_count == 1
+    assert detail_two_route.call_count == 0
+
+
+@pytest.mark.parametrize("status_code", [401, 403, 503])
+def test_aprende_http_errors_propagate_as_network_errors(
+    monkeypatch: pytest.MonkeyPatch,
+    status_code: int,
+) -> None:
+    monkeypatch.setattr(config, "COURTESY_DELAY", 0.0)
+    with respx.mock:
+        respx.get(_APRENDE_CATALOG_URL).mock(
+            return_value=httpx.Response(status_code, text="Unavailable")
+        )
+        with pytest.raises(NetworkError, match=str(status_code)):
+            list(AprendeProvider().scrape(AprendeProvider.default_url))
+
+
+def test_aprende_invalid_json_raises_parsing_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(config, "COURTESY_DELAY", 0.0)
+    with respx.mock:
+        respx.get(_APRENDE_CATALOG_URL).mock(
+            return_value=httpx.Response(200, text="{invalid")
+        )
+        with pytest.raises(ParsingError, match="invalid JSON"):
+            list(AprendeProvider().scrape(AprendeProvider.default_url))
+
+
+def test_netacad_uses_rendered_catalog_filters_paid_items_and_honors_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(config, "COURTESY_DELAY", 0.0)
+    html = f"""<!doctype html>
+    <html lang="en"><body>
+      <h2>Cybersecurity</h2>
+      {_netacad_card("free-one", "Free One", price="Free", credential="Free digital badge")}
+      {_netacad_card("paid", "Paid Course", price="$49")}
+      {_netacad_card("unknown-price", "Unknown Price", price=None)}
+      {_netacad_card("free-two", "Free Two", price="Gratis", duration="30 Minutes", level="Intermediate")}
+    </body></html>"""
+    opened_urls, wait_timeouts = _mock_netacad_page(monkeypatch, html)
+
+    courses = list(
+        NetacadProvider().scrape(
+            NetacadProvider.default_url,
+            render=False,
+            limit=2,
+        )
+    )
+
+    assert [course.name for course in courses] == ["Free One", "Free Two"]
+    assert courses[0].time_required == "PT6H"
+    assert courses[0].educational_level == "Principiante"
+    assert courses[0].in_language == "en"
+    assert courses[0].category == "Redes, Cloud y Ciberseguridad"
+    assert courses[0].access_type is AccessType.free_with_certificate
+    assert courses[1].time_required == "PT30M"
+    assert courses[1].educational_level == "Intermedio"
+    assert courses[1].access_type is AccessType.free_no_certificate
+    assert opened_urls == [NetacadProvider.default_url]
+    assert wait_timeouts == [15_000]
+
+
+def test_netacad_individual_detail_uses_extruct_and_requires_free_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(config, "COURTESY_DELAY", 0.0)
+    url = "https://www.netacad.com/courses/python-essentials-1?courseLang=en-US"
+    structured = {
+        "@context": "https://schema.org",
+        "@type": "Course",
+        "name": "Python Essentials 1",
+        "url": url,
+        "description": "A complete Python course description with learning outcomes.",
+        "inLanguage": "en",
+    }
+    html = (
+        f'<script type="application/ld+json">{json.dumps(structured)}</script>'
+        "<h1>Python Essentials 1</h1><p>Price: Free</p>"
+    )
+    opened_urls, _ = _mock_netacad_page(monkeypatch, html)
+
+    courses = list(NetacadProvider().scrape(url, limit=1))
+
+    assert [course.name for course in courses] == ["Python Essentials 1"]
+    assert courses[0].access_type is AccessType.free_no_certificate
+    assert courses[0].in_language == "en"
+    assert opened_urls == [url]

@@ -9,7 +9,7 @@ from collections.abc import Iterator
 from typing import Any, ClassVar
 
 from core.crawler import Crawler
-from schemas.models import AccessType, Course
+from schemas.models import AccessType, Course, resolve_category
 from utils.logger import get_logger
 
 from .base import ProviderBase
@@ -151,10 +151,10 @@ class MicrosoftLearnProvider(ProviderBase):
         level = level_values[0] if level_values else None
 
         subjects = cls._labels(item.get("subjects"))
-        roles = cls._labels(item.get("roles"))
         products = cls._labels(item.get("products"))
-        keywords = list(dict.fromkeys(subjects + roles + products))
-        category = " ".join(subjects + roles + products) or title
+        roles = cls._labels(item.get("roles"))
+        keywords = list(dict.fromkeys(subjects + products + roles))
+        category = cls._category_for_signals(subjects, products, roles, title)
 
         item_locale = item.get("locale")
         locale = item_locale if isinstance(item_locale, str) and item_locale.strip() else request_locale
@@ -183,3 +183,16 @@ class MicrosoftLearnProvider(ProviderBase):
         except ValueError as exc:
             logger.info("Skipping Microsoft Learn item %s: %s", course_url, exc)
             return None
+
+    @staticmethod
+    def _category_for_signals(
+        subjects: list[str],
+        products: list[str],
+        roles: list[str],
+        title: str,
+    ) -> str:
+        for signal in (*subjects, *products, *roles, title):
+            category = resolve_category(category_hint=signal)
+            if category != "Pendiente_Categoria":
+                return category
+        return "Pendiente_Categoria"

@@ -1,11 +1,12 @@
 [project]
 name = "cursodex-extractor"
-version = "0.1.0"
-description = "Motor de extracción, normalización y exportación semántica de cursos gratuitos en línea para Cursodex (TFM)."
+version = "0.3.0"
+description = "CLI sin estado para extraer y normalizar cursos gratuitos con JSON-LD/CSV para Omeka S; stateless course extractor with Schema.org and Dublin Core exports."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Cursodex", email = "research@cursodex.com" }]
+keywords = ["open-data", "semantic-web", "schema.org", "dublin-core", "omeka-s", "course-catalog"]
 
 dependencies = [
     # --- HTTP y renderizado dinámico ---

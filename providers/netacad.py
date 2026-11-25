@@ -1,34 +1,228 @@
+"""Cisco Networking Academy provider for its rendered public catalog."""
+
+from __future__ import annotations
+
 import re
 import urllib.parse
 from collections.abc import Iterator
+from typing import ClassVar
 
-from schemas.models import Course
+from bs4 import BeautifulSoup, Tag
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from pydantic import ValidationError
+
+from core.crawler import Crawler
+from core.extractor import extract_course_candidates
+from core.parser import parse_course_page
+from schemas.models import AccessType, Course, resolve_category
 from utils.logger import get_logger
 
 from .base import ProviderBase
 
 logger = get_logger(__name__)
 
-# Canonical sitemap URL — returns real XML without JS rendering
-_SITEMAP_URL = "https://www.netacad.com/sitemap.xml"
-
-# Known catalog/listing paths to try when rendering (JS needed)
-_CATALOG_CANDIDATES = [
-    "/catalogs/learn?category=course",
-    "/catalogs/learn",
-]
+_CATALOG_URL = "https://www.netacad.com/catalogs/learn?category=course"
+_COURSE_LINK_WAIT = """() => [...document.querySelectorAll('a[href]')].some(anchor => {
+    const path = new URL(anchor.href).pathname;
+    const parts = path.split('/').filter(Boolean);
+    return parts.length === 2 && parts[0] === 'courses' && parts[1] !== 'all-courses';
+})"""
 
 
 class NetacadProvider(ProviderBase):
     provider_name = "Netacad"
+    provider_aliases: ClassVar[tuple[str, ...]] = ("netacad", "cisco", "cisco netacad")
+    default_url = "https://www.netacad.com/courses/all-courses"
 
     @classmethod
     def can_handle(cls, url: str) -> bool:
-        netloc = urllib.parse.urlparse(url).netloc
-        return "netacad.com" in netloc
+        hostname = (urllib.parse.urlsplit(url).hostname or "").casefold()
+        return hostname in {"netacad.com", "www.netacad.com"}
 
     def should_crawl(self, url: str) -> bool:
-        return False   # We control crawling entirely in scrape()
+        return False
+
+    @staticmethod
+    def _is_course_detail_url(url: str) -> bool:
+        parsed = urllib.parse.urlsplit(url)
+        parts = parsed.path.strip("/").split("/")
+        return (
+            (parsed.hostname or "").casefold() in {"netacad.com", "www.netacad.com"}
+            and len(parts) == 2
+            and parts[0].casefold() == "courses"
+            and parts[1].casefold() != "all-courses"
+        )
+
+    @staticmethod
+    def _is_explicitly_free(text: str) -> bool:
+        return bool(
+            re.search(r"\bPrice\s*:\s*(?:Free|Gratis)\b", text, flags=re.IGNORECASE)
+        )
+
+    @staticmethod
+    def _access_type(text: str) -> AccessType:
+        if re.search(
+            r"\bfree\s+(?:digital\s+)?(?:certificate|badge)\b",
+            text,
+            flags=re.IGNORECASE,
+        ):
+            return AccessType.free_with_certificate
+        return AccessType.free_no_certificate
+
+    @staticmethod
+    def _page_language(url: str, fallback: str | None) -> str | None:
+        query = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)
+        course_language = next(
+            (values[0] for key, values in query.items() if key.casefold() == "courselang" and values),
+            None,
+        )
+        if course_language:
+            return course_language
+        return fallback
+
+    @staticmethod
+    def _card_description(card: Tag, name: str) -> str | None:
+        description = card.find(
+            lambda tag: isinstance(tag, Tag)
+            and "description" in str(tag.get("class")).casefold()
+        )
+        if isinstance(description, Tag):
+            title = description.get("title")
+            value = str(title).strip() if title else description.get_text(" ", strip=True)
+            if value:
+                return value
+
+        aria_label = card.get("aria-label")
+        if isinstance(aria_label, str):
+            label = aria_label.strip()
+            if label.casefold().startswith(name.casefold()):
+                remainder = label[len(name) :].lstrip(" .:-")
+                return remainder or None
+        return None
+
+    @staticmethod
+    def _card_section(card: Tag) -> str | None:
+        for heading in card.find_all_previous(["h2", "h3", "h4"], limit=8):
+            label = heading.get_text(" ", strip=True)
+            if label and label.casefold() not in {
+                "learning catalog",
+                "courses",
+                "course",
+                "home",
+            }:
+                return label
+        return None
+
+    @classmethod
+    def _course_from_card(
+        cls,
+        card: Tag,
+        url: str,
+        page_language: str | None,
+    ) -> Course | None:
+        card_text = card.get_text(" ", strip=True)
+        if not cls._is_explicitly_free(card_text):
+            return None
+
+        heading = card.select_one('[role="heading"]')
+        name = heading.get_text(" ", strip=True) if isinstance(heading, Tag) else ""
+        if not name:
+            aria_label = card.get("aria-label")
+            name = str(aria_label).split(".", maxsplit=1)[0].strip() if aria_label else ""
+        if not name:
+            return None
+
+        description = cls._card_description(card, name)
+        duration_match = re.search(
+            r"\bDuration\s*:\s*(\d+(?:[.,]\d+)?\s*(?:hours?|hrs?|minutes?|mins?))",
+            card_text,
+            flags=re.IGNORECASE,
+        )
+        level_match = re.search(
+            r"\bDifficulty\s+level\s*:\s*(Beginner|Intermediate|Advanced|Expert)\b",
+            card_text,
+            flags=re.IGNORECASE,
+        )
+        section = cls._card_section(card)
+        category = resolve_category(
+            category_hint=section or f"{name} {description or ''}",
+        )
+        image_tag = card.find("img", src=True)
+        image = str(image_tag.get("src")) if isinstance(image_tag, Tag) else None
+        language = cls._page_language(url, page_language)
+
+        try:
+            return Course(
+                name=name,
+                url=url,
+                description=description,
+                provider="Netacad",
+                category=category,
+                keywords=[section] if section else None,
+                time_required=duration_match.group(1) if duration_match else None,
+                educational_level=level_match.group(1) if level_match else None,
+                in_language=language,
+                image=image,
+                access_type=cls._access_type(card_text),
+                is_accessible_for_free=True,
+            )
+        except (ValidationError, ValueError) as exc:
+            logger.info("NetAcad card rejected for %s: %s", url, exc)
+            return None
+
+    @classmethod
+    def _courses_from_catalog(cls, html: str, catalog_url: str) -> list[Course]:
+        soup = BeautifulSoup(html, "html.parser")
+        html_element = soup.find("html")
+        page_language = (
+            str(html_element.get("lang"))
+            if html_element and html_element.get("lang")
+            else None
+        )
+        courses: list[Course] = []
+        seen_urls: set[str] = set()
+        for anchor in soup.find_all("a", href=True):
+            href = urllib.parse.urljoin(catalog_url, str(anchor["href"]))
+            parsed = urllib.parse.urlsplit(href)
+            if (parsed.hostname or "").casefold() not in {"netacad.com", "www.netacad.com"}:
+                continue
+            parts = parsed.path.strip("/").split("/")
+            if len(parts) != 2 or parts[0].casefold() != "courses":
+                continue
+            course_url = urllib.parse.urlunsplit(
+                (parsed.scheme, parsed.netloc, parsed.path, parsed.query, "")
+            )
+            if course_url in seen_urls:
+                continue
+            seen_urls.add(course_url)
+
+            course = cls._course_from_card(anchor, course_url, page_language)
+            if course is not None:
+                courses.append(course)
+        return courses
+
+    @classmethod
+    def _course_from_detail(cls, html: str, url: str) -> Course | None:
+        candidates = extract_course_candidates(html, url)
+        soup = BeautifulSoup(html, "html.parser")
+        page_text = soup.get_text(" ", strip=True)
+        if not cls._is_explicitly_free(page_text):
+            return None
+
+        defaults = {
+            "provider": "Netacad",
+            "access_type": cls._access_type(page_text),
+            "is_accessible_for_free": True,
+        }
+        for candidate in candidates:
+            values = {**candidate, **defaults}
+            try:
+                return Course(**values)
+            except (ValidationError, ValueError) as exc:
+                logger.info("NetAcad structured Course rejected for %s: %s", url, exc)
+        if candidates:
+            return None
+        return parse_course_page(html, url, defaults=defaults)
 
     def scrape(
         self,
@@ -37,160 +231,31 @@ class NetacadProvider(ProviderBase):
         limit: int = 0,
         enable_modules: bool = False,
     ) -> Iterator[Course]:
-        engine = "Playwright" if render else "Sitemap (static)"
-        logger.info(f"Scraping Netacad | Strategy: {engine}")
-
-        path = urllib.parse.urlparse(url).path or ""
-
-        # A real course detail page has a slug after /courses/, e.g. /courses/python-essentials-1
-        # Listing pages like /courses/all-courses are NOT detail pages
-        is_course_detail = bool(re.search(r"/courses/[^/]+/?$", path)) and "all-courses" not in path
-
-        # ── Direct course page ──────────────────────────────────────────────────
-        if is_course_detail:
-            html = self._fetch_html(url, render=render)
-            if html:
-                course = self._extract_course(html, url)
-                if course:
+        target_url = url or _CATALOG_URL
+        with Crawler(render=True) as crawler:
+            if self._is_course_detail_url(target_url):
+                with crawler.open_page(target_url) as page:
+                    html = page.content()
+                course = self._course_from_detail(html, target_url)
+                if course is not None:
                     yield course
-            return
-
-
-        # ── Catalog / listing page ──────────────────────────────────────────────
-        course_links = []
-
-        if render:
-            # Playwright: render the catalog SPA and harvest all /courses/ links
-            html = self._fetch_html(url, render=True)
-            if html:
-                course_links = self._course_links_from_html(html, url)
-
-            # If the rendered catalog didn't surface links, try known paths
-            if not course_links:
-                origin = f"{urllib.parse.urlparse(url).scheme}://{urllib.parse.urlparse(url).netloc}"
-                for path_candidate in _CATALOG_CANDIDATES:
-                    chtml = self._fetch_html(origin + path_candidate, render=True)
-                    if chtml:
-                        course_links = self._course_links_from_html(chtml, origin + path_candidate)
-                    if course_links:
-                        break
-
-            if not course_links:
-                logger.warning("Could not find course links on NetAcad catalog pages even with rendering.")
                 return
 
-            logger.info(f"Found {len(course_links)} course links. Scraping each…")
-            seen: set = set()
-            for link in course_links:
-                if link in seen:
-                    continue
-                seen.add(link)
+            with crawler.open_page(target_url) as page:
                 try:
-                    chtml = self._fetch_html(link, render=True)
-                    if not chtml:
-                        continue
-                    course = self._extract_course(chtml, link)
-                    if course:
-                        yield course
-                except Exception as e:
-                    logger.warning(f"Failed to scrape {link}: {e}")
-        else:
-            # Static mode: build Course records from sitemap URLs only.
-            # NetAcad's course detail pages (cperf.netacad.com) block bots with 403,
-            # so we construct minimal records from the slug and canonical URL pattern.
-            logger.info(
-                "Static mode: building course list from sitemap slugs. "
-                "Use --render for full course details."
-            )
-            course_links = self._course_links_from_sitemap(_SITEMAP_URL)
-            if not course_links:
-                logger.warning("No course URLs found in NetAcad sitemap.")
+                    page.wait_for_function(_COURSE_LINK_WAIT, timeout=15_000)
+                except PlaywrightTimeoutError:
+                    logger.warning("NetAcad catalog did not render course links within 15 seconds.")
+                html = page.content()
+
+            courses = self._courses_from_catalog(html, target_url)
+            if not courses:
+                logger.warning("No explicitly free NetAcad course cards were rendered.")
                 return
-            for link in course_links:
-                slug = link.rstrip("/").split("/")[-1]
-                # Construct the public-facing URL on www.netacad.com
-                public_url = f"https://www.netacad.com/courses/{slug}"
-                name = slug.replace("-", " ").title()
-                from schemas.models import Course as CourseModel
-                try:
-                    course = CourseModel(
-                        name=name,
-                        url=public_url,
-                        provider=self.provider_name,
-                    )
-                    yield course
-                except Exception as e:
-                    logger.warning(f"Could not build course for slug '{slug}': {e}")
 
-    # ───────────────────────────── Private helpers ─────────────────────────────
-
-    def _fetch_html(self, url: str, render: bool = False) -> str | None:
-        try:
-            return self.crawler.get(url, render=render)
-        except Exception as e:
-            logger.error(f"Fetch failed for {url}: {e}")
-            return None
-
-    def _course_links_from_sitemap(self, sitemap_url: str) -> list[str]:
-        """Parse the XML sitemap and return all /courses/ URLs."""
-        html = self._fetch_html(sitemap_url, render=False)
-        if not html:
-            return []
-        links = []
-        for m in re.finditer(r"<loc>(https?://[^<]+)</loc>", html, flags=re.I):
-            loc = m.group(1).strip()
-            if "/courses/" in loc:
-                links.append(loc)
-        logger.info(f"Sitemap yielded {len(links)} course URLs.")
-        return links
-
-    def _course_links_from_html(self, html: str, base_url: str) -> list[str]:
-        """Extract /courses/* links from a rendered HTML page."""
-        from core.parser import Parser
-        soup = Parser.parse_html(html)
-        all_links = Parser.extract_internal_links(soup, base_url)
-        return [link for link in all_links if "/courses/" in link]
-
-    def _extract_course(self, html: str, url: str) -> Course | None:
-        """Parse a course detail page into a Course model."""
-        course = self.parser.parse_course_page(html, url)
-
-        if not course:
-            from core.parser import Parser
-            soup = Parser.parse_html(html)
-            h1 = soup.find("h1")
-            title = h1.get_text(strip=True) if h1 else url
-            og_desc = soup.find("meta", property="og:description")
-            desc = str(og_desc.get("content")) if og_desc and og_desc.get("content") else None
-            og_img = soup.find("meta", property="og:image")
-            img = str(og_img.get("content")) if og_img and og_img.get("content") else None
-            from schemas.models import Course as CourseModel
-            try:
-                course = CourseModel(name=title, url=url, description=desc, image=img)
-            except Exception:
-                return None
-
-        if course:
-            data = course.model_dump()
-            data["provider"] = self.provider_name
-            from bs4 import BeautifulSoup
-            soup = BeautifulSoup(html, "html.parser")
-            text = soup.get_text(separator=" ", strip=True)
-
-            if not data.get("time_required"):
-                dur = re.search(r"(\d+)\s*HOURS?", text, flags=re.I)
-                if dur:
-                    data["time_required"] = f"PT{dur.group(1)}H"
-
-            if not data.get("educational_level"):
-                lvl = re.search(r"\b(BEGINNER|INTERMEDIATE|ADVANCED)\b", text, flags=re.I)
-                if lvl:
-                    data["educational_level"] = lvl.group(1).capitalize()
-
-            from schemas.models import Course as CourseModel
-            try:
-                course = CourseModel.model_validate(data)
-            except Exception:
-                pass
-
-        return course
+            emitted = 0
+            for course in courses:
+                yield course
+                emitted += 1
+                if limit > 0 and emitted >= limit:
+                    return

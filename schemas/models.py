@@ -1,7 +1,7 @@
 """
 schemas/models.py
 ==============================================================================
-Modelo estático Pydantic v2 para Cursodex (v0.2.0).
+Modelo estático Pydantic v2 para Cursodex (v0.3.0).
 
 Cumple estrictamente los contratos de normalización semántica, detección de cambios
 (content_hash SHA-256), canonización de URLs (anti-redirección de portada),
@@ -140,14 +140,18 @@ def resolve_category(
     if not sources:
         return "Pendiente_Categoria"
 
+    if category_hint:
+        normalized_hint = normalize_text_for_matching(category_hint)
+        for cat_entry in categories_list:
+            canonical = cat_entry.get("canonical")
+            if canonical and normalized_hint == normalize_text_for_matching(canonical):
+                return canonical
+
     for cat_entry in categories_list:
         canonical = cat_entry.get("canonical")
         synonyms = cat_entry.get("synonyms", [])
         if not canonical:
             continue
-
-        if category_hint and normalize_text_for_matching(category_hint) == normalize_text_for_matching(canonical):
-            return canonical
 
         for syn in synonyms:
             for text_source in sources:

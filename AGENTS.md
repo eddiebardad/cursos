@@ -6,20 +6,22 @@ Cualquier agente de IA o desarrollador que trabaje en este proyecto en Visual St
 
 ---
 
-## 1. Orden de Lectura Obligatoria antes de Modificar Código
+## 1. Contexto y Orden de Lectura Obligatoria
 
-Antes de realizar cambios, diagnosticar errores o planificar tareas, lee en este orden exacto:
+El repositorio completó los Pasos 1, 2, 3 y 4A–4C. Los cuatro proveedores v1 activos son `ms_learn`, `openlearn`, `aprende` y `netacad`.
 
-1. [ARCHITECTURE.md](file:///c:/Users/Eddie%20Barillas/OneDrive%20-%20Veeva%20Systems,%20Inc/Documents/GitHub/cursos/ARCHITECTURE.md): Arquitectura del sistema, especificación del modelo semántico `Course`, ontologías Schema.org + Dublin Core, contrato JSON-LD para Omeka S v4+, y reglas de `vocab_map.yml`.
-2. [PLAN.md](file:///c:/Users/Eddie%20Barillas/OneDrive%20-%20Veeva%20Systems,%20Inc/Documents/GitHub/cursos/PLAN.md): Hoja de ruta maestra end-to-end, estado actual post-Paso 3, especificación detallada del Paso 4 (proveedores v1) e integración con `n8n` y `Omeka S` (Hitos 1 a 5).
-3. [.agent/rules/cursodex.md](file:///c:/Users/Eddie%20Barillas/OneDrive%20-%20Veeva%20Systems,%20Inc/Documents/GitHub/cursos/.agent/rules/cursodex.md): Guardrails permanentes e inquebrantables del repositorio.
+Antes de realizar cambios, diagnosticar errores o planificar tareas, consulta en este orden:
+
+1. [ARCHITECTURE.md](./ARCHITECTURE.md): modelo semántico `Course`, ontologías Schema.org y Dublin Core, contratos de exportación y Omeka S v4+.
+2. [PLAN.md](./PLAN.md): estado de los Pasos 1–4C e hitos de integración con `n8n` y Omeka S.
+3. [.agent/rules/cursodex.md](./.agent/rules/cursodex.md): guardrails permanentes del repositorio.
 
 ---
 
 ## 2. Los 17 Guardrails Críticos del Proyecto (G1 a G17)
 
 * **G1 (Gestor `uv` exclusivo):** Prohibido usar `pip`, `conda` o `poetry`. Instalar entorno con `uv sync --frozen --link-mode=copy`. Ejecutar comandos con `uv run ...`.
-* **G2 (Contrato Unix absoluto):** **Prohibido `print()`** en runtime. `sys.stdout` reservado exclusivamente para JSON-LD puro (`--output -`). `sys.stderr` recibe 100% de logs y `run_summary` estructurado.
+* **G2 (Contrato Unix absoluto):** **Prohibido `print()`** en runtime. `sys.stdout` queda reservado para datos estructurados limpios: JSON-LD con `--output -` por defecto o CSV si se especifica `--format csv`. `sys.stderr` recibe 100% de logs y `run_summary` estructurado.
 * **G3 (Códigos de salida semánticos):**
   * `0`: $\ge 1$ cursos extraídos con éxito.
   * `2`: 0 cursos extraídos sin error técnico (alerta temprana para n8n).
@@ -40,7 +42,9 @@ Antes de realizar cambios, diagnosticar errores o planificar tareas, lee en este
 * **G16 (Identidad y Cambios):**
   * `canonical_url`: https forzado, dominios en minúsculas, stripping de puertos `:80` y `:443`, sin parámetros de tracking (`utm_*`, etc.) y anti-redirección de portada (rechaza rutas raíz vacías).
   * `content_hash`: SHA-256 sobre campos descriptivos/pedagógicos con listas ordenadas case-insensitive (`key=str.lower`), excluyendo timestamps y notas.
-* **G17 (CSV sin BOM):** Codificación UTF-8 pura sin BOM, separador de listas `;` con escape de comas internas.
+* **G17 (CSV sin BOM):** Codificación UTF-8 pura sin BOM; columnas separadas por coma, listas multivalor por `;` y puntos y comas internos sustituidos por comas antes de concatenar.
+
+El catálogo v1 solo registra `ms_learn`, `openlearn`, `aprende` y `netacad`; Microsoft Learn extrae `learningPaths` por defecto.
 
 ---
 
@@ -56,5 +60,5 @@ uv run pytest -v
 uv run ruff check .
 
 # 3. Comprobar tipado estático
-uv run mypy cli.py config.py schemas/ exporters/ utils/ core/ providers/
+uv run mypy cli.py config.py schemas/ exporters/ utils/ core/ providers/ tests/
 ```

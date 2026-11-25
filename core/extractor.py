@@ -292,6 +292,22 @@ def _open_graph_properties(value: Any) -> dict[str, Any]:
     return properties
 
 
+def extract_open_graph_metadata(html: str, base_url: str) -> dict[str, Any]:
+    """Extract OpenGraph properties without treating them as Course evidence."""
+    try:
+        extracted = extruct.extract(
+            html,
+            base_url=base_url,
+            syntaxes=["opengraph"],
+            uniform=False,
+            errors="ignore",
+        )
+    except Exception as exc:
+        logger.debug("OpenGraph extraction failed for %s: %s", base_url, exc)
+        return {}
+    return _open_graph_properties(extracted.get("opengraph", []))
+
+
 def _enrich_with_open_graph(
     candidate: dict[str, Any],
     og_properties: dict[str, Any],

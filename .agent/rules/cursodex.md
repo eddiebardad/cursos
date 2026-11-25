@@ -1,4 +1,4 @@
-# Cursodex Extractor — Guardrails Permanentes del Agente (v0.2.0)
+# Cursodex Extractor — Guardrails Permanentes del Agente (v0.3.0)
 
 > Este archivo define las reglas inquebrantables para cualquier agente de IA
 > que trabaje sobre el repositorio `cursos` (cursodex-extractor).
@@ -10,7 +10,7 @@
 
 ## G1 · Gestor de entorno: exclusivamente `uv`
 
-- Prohibido usar `pip install`, `pip uninstall`, `conda`, `poetry` o cualquier otro gestor.
+- Prohibido usar `pip`, `conda`, `poetry` o cualquier otro gestor distinto de `uv`.
 - Para añadir dependencias: `uv add <package>` (producción) o `uv add --dev <package>` (desarrollo).
 - Para instalar el entorno: `uv sync --frozen --link-mode=copy`.
 - Para ejecutar scripts: `uv run python ...` o `uv run cursodex ...`.
@@ -21,7 +21,7 @@
 - **`print()` está PROHIBIDO** en `cli.py`, `core/`, `providers/`, `exporters/` y `schemas/`.
   La única excepción es código de demostración o scripts en `legacy/` (que no se publican).
 - **`sys.stdout`** queda reservado exclusivamente para datos estructurados limpios
-  (el JSON-LD array cuando se invoca `--output -`).
+  (JSON-LD cuando se invoca `--output -` por defecto; CSV solo si se indica `--format csv`).
 - **`sys.stderr`** recibe el 100% de los logs, warnings, mensajes de ayuda y el resumen estructurado de ejecución.
 - Todo log pasa por `utils.logger.get_logger(__name__)` → nunca instanciar
   `logging.getLogger()` directamente fuera de `utils/logger.py`.
@@ -132,6 +132,10 @@ Cursos de pago o pruebas temporales ("7 días gratis") deben **rechazarse con `V
 - La extracción de `modules` requiere el flag explícito `--enable-modules`.
 - El campo de duración es `duration_in_minutes` (con fallback defensivo a `durationInMinutes`).
 
+## Proveedores activos v1
+
+Los Pasos 1–4C están completados. El catálogo registra únicamente `ms_learn`, `openlearn`, `aprende` y `netacad`. No reactivar proveedores retirados ni añadir aliases fuera de sus adaptadores sin actualizar la documentación y las pruebas.
+
 ## G16 · Contenido de `content_hash` y `canonical_url`
 
 - **`content_hash`**: SHA-256 sobre estos campos en JSON compacto (`sort_keys=True`):
@@ -144,7 +148,17 @@ Cursos de pago o pruebas temporales ("7 días gratis") deben **rechazarse con `V
 ## G17 · CSV sin BOM
 
 - `CSVExporter` debe codificar en `utf-8` estándar (sin BOM `\ufeff`).
+- Las columnas se separan por coma; los valores multivalor dentro de una celda se unen con `;`.
+- Los puntos y comas internos de cada elemento se sustituyen por comas antes de unir la lista.
 
 ---
+
+## Comandos de verificación
+
+```bash
+uv run pytest -v
+uv run ruff check .
+uv run mypy cli.py config.py schemas/ exporters/ utils/ core/ providers/ tests/
+```
 
 *Actualizar este documento cuando se añadan nuevas reglas arquitectónicas.*

@@ -348,6 +348,57 @@ def test_category_specificity_ordering():
     assert c_tic.category == "Tecnologías de la Información y la Comunicación (General)"
 
 
+@pytest.mark.parametrize("signal", ["F#", "fsharp", "f sharp", "dotnet"])
+def test_programming_vocabulary_maps_fsharp_and_dotnet(signal: str) -> None:
+    course = Course(
+        name="Curso de lenguaje funcional",
+        url="https://example.com/courses/functional-language",
+        description="A sufficiently detailed course description for category validation.",
+        in_language="en",
+        keywords=[signal],
+    )
+
+    assert course.category == "Programación y Desarrollo de Software"
+
+
+@pytest.mark.parametrize("signal", ["Purview", "Microsoft Purview", "Entra", "Defender"])
+def test_cloud_security_vocabulary_maps_microsoft_products(signal: str) -> None:
+    course = Course(
+        name="Microsoft security administration",
+        url="https://example.com/courses/security-administration",
+        description="A sufficiently detailed course description for category validation.",
+        in_language="en",
+        keywords=[signal],
+    )
+
+    assert course.category == "Redes, Cloud y Ciberseguridad"
+
+
+def test_generic_data_keyword_does_not_create_data_science_category() -> None:
+    course = Course(
+        name="A general platform course",
+        url="https://example.com/courses/platform",
+        description="A sufficiently detailed course description for category validation.",
+        in_language="en",
+        keywords=["data"],
+    )
+
+    assert course.category == "Pendiente_Categoria"
+
+
+def test_canonical_category_hint_precedes_conflicting_keywords() -> None:
+    course = Course(
+        name="Azure data migration",
+        url="https://example.com/courses/azure-data-migration",
+        description="A sufficiently detailed course description for category validation.",
+        in_language="en",
+        category="Redes, Cloud y Ciberseguridad",
+        keywords=["Azure", "Data Engineer"],
+    )
+
+    assert course.category == "Redes, Cloud y Ciberseguridad"
+
+
 # ==============================================================================
 # 10. Pruebas de Idempotencia, Puertos, Sanitización, Días e Imágenes
 # ==============================================================================

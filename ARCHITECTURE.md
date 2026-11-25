@@ -1,6 +1,6 @@
 # ARCHITECTURE.md — Cursodex Extractor
 
-> **Versión:** 0.2.0 · **Última actualización:** 2026-11-24  
+> **Versión:** 0.3.0 · **Paso 4C completado**
 > Documento de referencia permanente para el repositorio `cursos`.  
 > Cualquier cambio arquitectónico debe reflejarse aquí antes de implementarse.
 
@@ -59,6 +59,11 @@ cursos/
 ├── uv.lock                  # Lock file — commiteado para builds reproducibles
 ├── ARCHITECTURE.md          # Este documento
 ├── README.md
+├── PLAN.md                  # Hoja de ruta del proyecto
+├── AGENTS.md                # Guardrails e instrucciones de trabajo
+├── .agent/rules/cursodex.md # Guardrails permanentes del repositorio
+├── .github/copilot-instructions.md
+│
 │
 ├── core/
 │   ├── crawler.py           # Clase Crawler (httpx + Playwright) y crawl_site() BFS
@@ -69,7 +74,7 @@ cursos/
 ├── providers/
 │   ├── base.py              # ProviderBase ABC + registro automático
 │   ├── ms_learn.py          # Microsoft Learn (API REST - learningPaths)
-│   ├── hubspot.py           # HubSpot Academy (httpx + extruct, sitemap /es/courses)
+│   ├── openlearn.py         # OpenLearn (sitemap XML comprimido + extruct/DOM)
 │   ├── aprende.py           # Aprende.org / Capacítate (API privada JSON)
 │   ├── netacad.py           # Cisco NetAcad (Playwright + extruct)
 │   └── __init__.py          # Auto-discovery + get_provider_for_url()
@@ -92,8 +97,14 @@ cursos/
 │   └── __init__.py
 │
 ├── tests/
-│   ├── test_models.py       # Tests unitarios: canonización, hash, duración, revisión, vocab
-│   └── test_providers.py    # Tests de integración con mocks de red
+│   ├── test_exporters_and_cli.py
+│   ├── test_extractor_and_crawler.py
+│   ├── test_models.py
+│   └── test_providers.py
+│
+├── docs/
+│   ├── USER_GUIDE.md        # Guía de usuario y operación
+│   └── index.html           # Manual visual autocontenido
 │
 └── legacy/                  # Scripts obsoletos (en .gitignore — no se publican en Git)
 ```
@@ -230,14 +241,8 @@ En la API REST de Omeka S v4+:
     "schema:url": [
       {"type": "uri", "property_id": "auto", "@id": "https://proveedor.com/cursos/python"}
     ],
-    "schema:identifier": [
-      {"type": "literal", "property_id": "auto", "@value": "urn:cursodex:sha256:a3f4b2c1...", "is_public": false}
-    ],
-    "schema:dateModified": [
-      {"type": "literal", "property_id": "auto", "@value": "2026-11-24T00:00:00Z", "is_public": false}
-    ],
     "schema:description": [
-      {"type": "literal", "property_id": "auto", "@value": "Aprende los fundamentos de Python..."}
+      {"type": "literal", "property_id": "auto", "@value": "Aprende los fundamentos de Python...", "@language": "es"}
     ],
     "schema:provider": [
       {"type": "literal", "property_id": "auto", "@value": "Microsoft Learn"}
@@ -272,6 +277,12 @@ En la API REST de Omeka S v4+:
     ],
     "schema:image": [
       {"type": "uri", "property_id": "auto", "@id": "https://proveedor.com/img/python.jpg"}
+    ],
+    "schema:identifier": [
+      {"type": "literal", "property_id": "auto", "@value": "urn:cursodex:sha256:a3f4b2c1...", "is_public": false}
+    ],
+    "schema:dateModified": [
+      {"type": "literal", "property_id": "auto", "@value": "2026-11-24T00:00:00Z", "is_public": false}
     ],
 
     "dcterms:title": [
@@ -318,13 +329,7 @@ En la API REST de Omeka S v4+:
 - Cabeceras directas en formato `namespace:property`:
 
 ```
-dcterms:title, dcterms:identifier, dcterms:publisher, dcterms:creator,
-dcterms:description, dcterms:language, dcterms:subject,
-schema:name, schema:url, schema:description, schema:provider, schema:author,
-schema:about, schema:keywords, schema:timeRequired, schema:educationalLevel,
-schema:inLanguage, schema:isAccessibleForFree, schema:educationalCredentialAwarded,
-schema:coursePrerequisites, schema:image,
-canonical_url, content_hash, access_type, needs_review, review_notes, last_seen_at
+dcterms:title,dcterms:identifier,dcterms:publisher,dcterms:creator,dcterms:description,dcterms:language,dcterms:subject,schema:name,schema:url,schema:description,schema:provider,schema:author,schema:about,schema:keywords,schema:timeRequired,schema:educationalLevel,schema:inLanguage,schema:isAccessibleForFree,schema:educationalCredentialAwarded,schema:coursePrerequisites,schema:image,canonical_url,content_hash,access_type,needs_review,review_notes,last_seen_at
 ```
 
 ---
@@ -337,7 +342,7 @@ USER_AGENT       = "CursodexBot/1.0 (+https://cursodex.com; academic research in
 HTTP_TIMEOUT     = 30          # segundos
 COURTESY_DELAY   = 1.0         # segundos entre peticiones
 FOLLOW_REDIRECTS = True
-MAX_RESULTS      = 0           # 0 = sin límite; sobreescrito por --limit
+MAX_RESULTS      = 0           # variable declarada; el CLI limita ejecuciones con --limit
 ```
 
 ---
@@ -346,10 +351,10 @@ MAX_RESULTS      = 0           # 0 = sin límite; sobreescrito por --limit
 
 | # | Provider | Módulo | Estrategia | URL de entrada | `access_type` por defecto |
 |---|---|---|---|---|---|
-| 1 | **Microsoft Learn** | `ms_learn.py` | API REST JSON (`learningPaths` únicamente) | `https://learn.microsoft.com/api/catalog/?locale=es-es` | `free_with_certificate` |
-| 2 | **HubSpot Academy** | `hubspot.py` | `httpx` + `extruct` JSON-LD + sitemap en `/es/courses` | `https://academy.hubspot.com/es/courses` | `free_with_certificate` |
-| 3 | **Aprende.org** | `aprende.py` | API privada JSON (`capacitateparaelempleo.org`) | `https://aprende.org` | `free_with_certificate` |
-| 4 | **Cisco NetAcad** | `netacad.py` | Playwright + `extruct` + bs4 fallback | `https://www.netacad.com/courses/all-courses` | Inferencia real (insignia → `free_with_certificate`) |
+| 1 | **Microsoft Learn** | `ms_learn.py` | API REST JSON (`learningPaths`; módulos opt-in) | `https://learn.microsoft.com/api/catalog/?locale=es-es` | `free_with_certificate` |
+| 2 | **OpenLearn (The Open University)** | `openlearn.py` | Sitemap `.xml.gz`, `extruct` y fallback OpenGraph/DOM | `https://www.open.edu/openlearn/free-courses/full-catalogue` | Evidencia HTML de credencial; si no, `free_no_certificate` |
+| 3 | **Aprende.org** | `aprende.py` | API JSON pública con detalle perezoso | `https://aprende.org/cursos` | `free_with_certificate` |
+| 4 | **Cisco NetAcad** | `netacad.py` | Playwright SPA; tarjetas filtradas por precio explícito | `https://www.netacad.com/courses/all-courses` | Insignia/certificado explícito; en otro caso `free_no_certificate` |
 
 ### 8.1 Notas específicas por proveedor
 
@@ -358,17 +363,19 @@ MAX_RESULTS      = 0           # 0 = sin límite; sobreescrito por --limit
 - Extraer exclusivamente **`learningPaths`** por defecto (itinerarios completos de varias horas). Los `modules` se extraen solo con flag `--enable-modules`.
 - Campos de API: `duration_in_minutes` (con fallback defensivo a `durationInMinutes`), `levels[]`, `products[]`, `roles[]`.
 
-**HubSpot Academy (`hubspot.py`):**
-- Filtrar el sitemap priorizando rutas localizadas en español (`/es/courses`).
+**OpenLearn (`openlearn.py`):**
+- Intenta el sitemap de cursos comprimido y usa la paginación del catálogo como respaldo.
+- Las fichas probadas no exponen necesariamente `schema:Course`; se combina OpenGraph con DOM para nivel, duración, tema e idioma.
+- Solo se declara credencial gratuita cuando la ficha menciona explícitamente una *Free statement of participation* o *free digital badge*.
 
 **Aprende.org (`aprende.py`):**
-- Conexión directa a API interna. Si falla o exige auth, fallar con código `1` o `2`. `needs_review` no se fuerza masivamente.
+- Usa `Crawler` y la API JSON; consulta detalles únicamente para los cursos sin descripción que se van a emitir. Un detalle sin descripción se conserva honestamente como `None`.
 
 **Cisco NetAcad (`netacad.py`):**
-- Inspeccionar si el curso incluye certificado o insignia de finalización gratuita. No asumir `free_audit_paid_certificate`.
+- Renderiza por defecto el catálogo SPA, descarta tarjetas sin precio gratuito explícito y no consulta endpoints bloqueados de detalle.
 
-**Plan B:**
-- Si Aprende.org o NetAcad presentan bloqueos insalvables en producción, el sustituto prioritario es **OpenLearn (The Open University)** (`https://www.open.edu/openlearn/`).
+**Proveedor retirado — HubSpot Academy:**
+- `providers/hubspot.py` se trasladó a `legacy/` y queda fuera de Git. El sondeo confirmó que el sitemap ya no publica rutas `/courses/` y que la página española servía una shell SPA sin datos de curso aprovechables en estático.
 
 ---
 

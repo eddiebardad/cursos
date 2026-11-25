@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Manual visual de Cursodex Extractor v0.3.0: arquitectura, proveedores, contratos semánticos y operación.">
+  <title>Cursodex Extractor · Manual visual v0.3.0</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f3f6fb;
+      --surface: #fff;
+      --surface-alt: #eaf0f8;
+      --ink: #17243a;
+      --muted: #52647d;
+      --line: #d7e0ed;
+      --brand: #1459a6;
+      --brand-soft: #dcecff;
+      --green: #15734b;
+      --amber: #8a5700;
+      --red: #a83333;
+      --code: #101b2c;
+      --code-ink: #e7f0ff;
+      --shadow: 0 12px 32px rgb(26 49 81 / 8%);
+      font: 16px/1.65 system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #101722;
+        --surface: #182332;
+        --surface-alt: #202f42;
+        --ink: #e8eff9;
+        --muted: #afbdd0;
+        --line: #35465d;
+        --brand: #80baff;
+        --brand-soft: #203d5d;
+        --green: #72d6a5;
+        --amber: #ffd074;
+        --red: #ff9a9a;
+        --code: #0a1019;
+        --code-ink: #e7f0ff;
+        --shadow: 0 12px 32px rgb(0 0 0 / 20%);
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 1.5rem; }
+    body { margin: 0; background: var(--bg); color: var(--ink); }
+    a { color: var(--brand); text-underline-offset: .18em; }
+    a:hover { text-decoration-thickness: 2px; }
+    code, pre, kbd { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+    code { overflow-wrap: anywhere; }
+    pre {
+      overflow-x: auto;
+      padding: 1rem 1.2rem;
+      border: 1px solid var(--line);
+      border-radius: .8rem;
+      background: var(--code);
+      color: var(--code-ink);
+      font-size: .88rem;
+      line-height: 1.55;
+    }
+    pre code { white-space: pre; }
+    h1, h2, h3 { line-height: 1.2; letter-spacing: -.025em; }
+    h1 { margin: .4rem 0 1rem; font-size: clamp(2.4rem, 5vw, 4.5rem); }
+    h2 { margin-top: 0; font-size: clamp(1.7rem, 3vw, 2.4rem); }
+    h3 { font-size: 1.17rem; }
+    p, li { max-width: 76ch; }
+    .layout { min-height: 100vh; }
+    .sidebar {
+      position: fixed;
+      inset: 0 auto 0 0;
+      z-index: 3;
+      width: 17rem;
+      overflow-y: auto;
+      padding: 1.5rem 1rem;
+      border-right: 1px solid var(--line);
+      background: var(--surface);
+    }
+    .brand {
+      display: block;
+      margin: 0 0 1.25rem;
+      color: var(--ink);
+      font-size: 1.15rem;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .brand span { display: block; color: var(--muted); font-size: .78rem; font-weight: 600; }
+    .sidebar nav { display: grid; gap: .22rem; }
+    .sidebar nav a {
+      padding: .48rem .65rem;
+      border-radius: .55rem;
+      color: var(--muted);
+      font-size: .9rem;
+      text-decoration: none;
+    }
+    .sidebar nav a:hover { background: var(--surface-alt); color: var(--ink); }
+    main { max-width: 1100px; margin-left: 17rem; padding: 3rem clamp(1.2rem, 5vw, 4.5rem) 5rem; }
+    section { margin: 0 0 4.5rem; scroll-margin-top: 2rem; }
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: clamp(1.5rem, 4vw, 3.5rem);
+      border: 1px solid var(--line);
+      border-radius: 1.5rem;
+      background:
+        radial-gradient(circle at 90% 10%, var(--brand-soft), transparent 34%),
+        var(--surface);
+      box-shadow: var(--shadow);
+    }
+    .eyebrow { color: var(--brand); font-size: .8rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    .lead { max-width: 68ch; color: var(--muted); font-size: 1.15rem; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      margin: .2rem .25rem .2rem 0;
+      padding: .2rem .65rem;
+      border: 1px solid var(--line);
+      border-radius: 99px;
+      background: var(--surface);
+      color: var(--brand);
+      font-size: .82rem;
+      font-weight: 700;
+    }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+    .card, .panel {
+      padding: 1.2rem;
+      border: 1px solid var(--line);
+      border-radius: 1rem;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    .card h3 { margin: .3rem 0 .5rem; }
+    .card p { margin: .35rem 0; color: var(--muted); font-size: .94rem; }
+    .card .symbol { font-size: 1.45rem; }
+    .diagram {
+      margin: 1.3rem 0;
+      padding: 1rem;
+      border: 1px solid var(--line);
+      border-radius: 1rem;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    .diagram svg { display: block; width: 100%; height: auto; }
+    .diagram figcaption { margin: .75rem .4rem 0; color: var(--muted); font-size: .9rem; }
+    .svg-box { fill: var(--surface-alt); stroke: var(--line); stroke-width: 2; }
+    .svg-box-primary { fill: var(--brand-soft); stroke: var(--brand); stroke-width: 2; }
+    .svg-box-green { fill: color-mix(in srgb, var(--green) 12%, var(--surface)); stroke: var(--green); stroke-width: 2; }
+    .svg-text { fill: var(--ink); font: 700 16px system-ui, sans-serif; }
+    .svg-small { fill: var(--muted); font: 13px system-ui, sans-serif; }
+    .svg-arrow { fill: none; stroke: var(--brand); stroke-width: 3; marker-end: url(#arrow); }
+    .svg-arrow-muted { fill: none; stroke: var(--muted); stroke-width: 2.5; stroke-dasharray: 7 6; marker-end: url(#arrow-muted); }
+    .notice {
+      padding: .9rem 1rem;
+      border-left: 4px solid var(--brand);
+      border-radius: .4rem;
+      background: var(--brand-soft);
+    }
+    .notice.warning { border-color: var(--amber); }
+    .notice.good { border-color: var(--green); }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; background: var(--surface); }
+    th, td { padding: .7rem .75rem; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { background: var(--surface-alt); }
+    .table-wrap { overflow-x: auto; border-radius: .8rem; }
+    details {
+      margin: .8rem 0;
+      padding: .8rem 1rem;
+      border: 1px solid var(--line);
+      border-radius: .8rem;
+      background: var(--surface);
+    }
+    summary { color: var(--brand); cursor: pointer; font-weight: 750; }
+    .small { color: var(--muted); font-size: .9rem; }
+    .status { font-weight: 800; }
+    .status.ok { color: var(--green); }
+    .status.review { color: var(--amber); }
+    .status.error { color: var(--red); }
+    footer { padding-top: 1rem; border-top: 1px solid var(--line); color: var(--muted); font-size: .9rem; }
+
+    @media (max-width: 860px) {
+      .sidebar { position: sticky; inset: 0 auto auto; width: 100%; max-height: 12rem; border-right: 0; border-bottom: 1px solid var(--line); }
+      .sidebar nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      main { margin-left: 0; padding-top: 1.5rem; }
+    }
+    @media (max-width: 520px) {
+      .sidebar { max-height: 10rem; padding: .8rem; }
+      .sidebar nav { grid-template-columns: 1fr 1fr; gap: 0; }
+      .sidebar nav a { padding: .3rem; font-size: .78rem; }
+      .brand { margin-bottom: .45rem; }
+      th, td { padding: .5rem; }
+    }
+    @media print {
+      :root { color-scheme: light; --bg: #fff; --surface: #fff; --surface-alt: #f0f3f7; --ink: #111; --muted: #444; --line: #bbb; --brand: #174e82; --brand-soft: #e8f1fa; --code: #f4f4f4; --code-ink: #111; }
+      body { background: #fff; font-size: 10pt; }
+      .sidebar { display: none; }
+      main { max-width: none; margin: 0; padding: 0; }
+      .hero, .card, .panel, .diagram { box-shadow: none; break-inside: avoid; }
+      section { margin-bottom: 2rem; }
+      a { color: inherit; }
+      pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+      details > *:not(summary) { display: block; }
+      details { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar" aria-label="Navegación del manual">
+      <a class="brand" href="#inicio">CURSODEX<span>Manual visual · v0.3.0</span></a>
+      <nav>
+        <a href="#arquitectura">Arquitectura</a>
+        <a href="#proveedores">Proveedores</a>
+        <a href="#unix">Contrato Unix</a>
+        <a href="#serializacion">Serialización</a>
+        <a href="#uso">Comandos CLI</a>
+        <a href="#payload">Ejemplos de salida</a>
+        <a href="#vocabulario">Vocabulario</a>
+        <a href="#revision">Triaje y revisión</a>
+        <a href="#errores">Solución de problemas</a>
+      </nav>
+    </aside>
+
+    <main>
+      <header class="hero" id="inicio">
+        <div class="eyebrow">Cursodex Extractor · versión estable 0.3.0</div>
+        <h1>Un catálogo abierto.<br>Datos que se entienden.</h1>
+        <p class="lead">
+          Manual ilustrado del CLI stateless que extrae metadatos de cursos gratuitos,
+          los normaliza con Pydantic v2 y los entrega en JSON-LD o CSV para la
+          curaduría en Omeka S. El extractor enlaza a los proveedores: no aloja sus cursos.
+        </p>
+        <span class="pill">Schema.org</span>
+        <span class="pill">Dublin Core</span>
+        <span class="pill">Omeka S v4+</span>
+        <span class="pill">n8n</span>
+        <p class="small">Parte A del Hito 1 · cuatro proveedores operativos · datos públicos sujetos a revisión editorial.</p>
+      </header>
+
+      <section id="arquitectura">
+        <h2>1. Arquitectura del ecosistema</h2>
+        <p>La separación de responsabilidades evita que el extractor se convierta en una base de datos o en un cliente directo de Omeka S. n8n orquesta y el repositorio semántico conserva el catálogo curado.</p>
+        <figure class="diagram">
+          <svg viewBox="0 0 1000 340" role="img" aria-labelledby="arch-title arch-desc">
+            <title id="arch-title">Flujo de cuatro proveedores a Omeka S mediante el CLI y n8n</title>
+            <desc id="arch-desc">Los cuatro proveedores alimentan cursodex-extractor; este emite datos a n8n, que actualiza Omeka S con Read-Merge-PUT y permite la exposición OAI-PMH.</desc>
+            <defs>
+              <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="var(--brand)"/></marker>
+              <marker id="arrow-muted" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="var(--muted)"/></marker>
+            </defs>
+            <rect class="svg-box" x="18" y="52" width="205" height="226" rx="18"/>
+            <text class="svg-text" x="120" y="83" text-anchor="middle">Proveedores</text>
+            <text class="svg-small" x="120" y="120" text-anchor="middle">Microsoft Learn</text>
+            <text class="svg-small" x="120" y="153" text-anchor="middle">OpenLearn · The OU</text>
+            <text class="svg-small" x="120" y="186" text-anchor="middle">Aprende.org</text>
+            <text class="svg-small" x="120" y="219" text-anchor="middle">Cisco NetAcad</text>
+            <text class="svg-small" x="120" y="254" text-anchor="middle">Públicos · gratuitos</text>
+
+            <rect class="svg-box-primary" x="280" y="85" width="205" height="155" rx="18"/>
+            <text class="svg-text" x="382" y="121" text-anchor="middle">cursodex-extractor</text>
+            <text class="svg-small" x="382" y="153" text-anchor="middle">Python · uv · stateless</text>
+            <text class="svg-small" x="382" y="181" text-anchor="middle">Course · Pydantic v2</text>
+            <text class="svg-small" x="382" y="209" text-anchor="middle">JSON-LD · CSV</text>
+
+            <rect class="svg-box" x="545" y="85" width="190" height="155" rx="18"/>
+            <text class="svg-text" x="640" y="121" text-anchor="middle">n8n</text>
+            <text class="svg-small" x="640" y="153" text-anchor="middle">canonical_url</text>
+            <text class="svg-small" x="640" y="181" text-anchor="middle">content_hash</text>
+            <text class="svg-small" x="640" y="209" text-anchor="middle">Read-Merge-PUT</text>
+
+            <rect class="svg-box-green" x="795" y="52" width="185" height="226" rx="18"/>
+            <text class="svg-text" x="887" y="91" text-anchor="middle">Omeka S v4+</text>
+            <text class="svg-small" x="887" y="132" text-anchor="middle">schema:Course</text>
+            <text class="svg-small" x="887" y="165" text-anchor="middle">Dublin Core</text>
+            <text class="svg-small" x="887" y="205" text-anchor="middle">Curaduría</text>
+            <text class="svg-small" x="887" y="238" text-anchor="middle">OAI-PMH · oai_dc</text>
+
+            <path class="svg-arrow" d="M223 165 H270"/>
+            <path class="svg-arrow" d="M485 165 H535"/>
+            <path class="svg-arrow" d="M735 165 H785"/>
+            <text class="svg-small" x="510" y="308" text-anchor="middle">Datos estructurados hacia n8n; sin conexión HTTP del CLI a Omeka S</text>
+          </svg>
+          <figcaption>Las altas permanecen privadas para revisión. Las actualizaciones en Omeka S se realizan como lectura completa, merge y PUT completo.</figcaption>
+        </figure>
+        <div class="notice"><strong>Identidad y cambios.</strong> n8n compara la URL canónica del curso y la huella SHA-256 de sus campos descriptivos para decidir si lo registra o actualiza.</div>
+      </section>
+
+      <section id="proveedores">
+        <h2>2. Los cuatro proveedores v1</h2>
+        <div class="grid">
+          <article class="card">
+            <div class="symbol" aria-hidden="true">▦</div>
+            <h3><code>ms_learn</code></h3>
+            <p><strong>Microsoft Learn</strong> · API de catálogo.</p>
+            <p>Extrae learning paths por defecto; los módulos requieren <code>--enable-modules</code>.</p>
+            <p>Idioma: inglés y español. Los cursos se modelan como acceso gratuito según la metadata del proveedor.</p>
+          </article>
+          <article class="card">
+            <div class="symbol" aria-hidden="true">◎</div>
+            <h3><code>openlearn</code></h3>
+            <p><strong>The Open University</strong> · sitemap comprimido, extruct y DOM.</p>
+            <p>Idioma predominante: inglés. Solo atribuye certificado/insignia gratuita con señal explícita de la ficha.</p>
+          </article>
+          <article class="card">
+            <div class="symbol" aria-hidden="true">◈</div>
+            <h3><code>aprende</code></h3>
+            <p><strong>Aprende.org</strong> · API JSON en español.</p>
+            <p>Consulta los detalles necesarios de forma perezosa y no inventa descripciones ausentes.</p>
+          </article>
+          <article class="card">
+            <div class="symbol" aria-hidden="true">⌘</div>
+            <h3><code>netacad</code></h3>
+            <p><strong>Cisco Networking Academy</strong> · catálogo SPA con Playwright.</p>
+            <p>Solo emite tarjetas con gratuidad explícita. Si la tarjeta no declara credencial gratuita, no la presume.</p>
+          </article>
+        </div>
+        <p class="notice warning"><strong>Filtro anti-falsos gratis:</strong> no se acepta acceso obligatorio de pago ni una prueba temporal como curso gratuito.</p>
+      </section>
+
+      <section id="unix">
+        <h2>3. Contrato Unix y códigos de salida</h2>
+        <p>La salida estructurada y la observabilidad son canales independientes. Esta separación permite encadenar el CLI con n8n, PowerShell, Bash o validadores JSON sin contaminar el payload.</p>
+        <figure class="diagram">
+          <svg viewBox="0 0 960 300" role="img" aria-labelledby="unix-title unix-desc">
+            <title id="unix-title">Canales stdout y stderr, más códigos de salida</title>
+            <desc id="unix-desc">stdout contiene exclusivamente JSON-LD o CSV; stderr contiene logs y run_summary; el proceso termina con código cero, uno o dos según el resultado.</desc>
+            <defs>
+              <marker id="arrow2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="var(--brand)"/></marker>
+              <marker id="arrow-muted2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="var(--muted)"/></marker>
+            </defs>
+            <rect class="svg-box-primary" x="28" y="82" width="200" height="105" rx="16"/>
+            <text class="svg-text" x="128" y="121" text-anchor="middle">CLI cursodex</text>
+            <text class="svg-small" x="128" y="153" text-anchor="middle">proceso</text>
+            <path d="M228 108 H450" stroke="var(--brand)" stroke-width="4" marker-end="url(#arrow2)"/>
+            <path d="M228 163 H450" stroke="var(--muted)" stroke-width="4" stroke-dasharray="7 6" marker-end="url(#arrow-muted2)"/>
+            <rect class="svg-box-green" x="465" y="57" width="250" height="75" rx="14"/>
+            <text class="svg-text" x="590" y="87" text-anchor="middle">stdout · datos</text>
+            <text class="svg-small" x="590" y="113" text-anchor="middle">JSON-LD array / CSV</text>
+            <rect class="svg-box" x="465" y="143" width="250" height="75" rx="14"/>
+            <text class="svg-text" x="590" y="173" text-anchor="middle">stderr · diagnóstico</text>
+            <text class="svg-small" x="590" y="199" text-anchor="middle">logs + run_summary</text>
+            <rect class="svg-box" x="760" y="39" width="175" height="194" rx="16"/>
+            <text class="svg-text" x="847" y="73" text-anchor="middle">Exit code</text>
+            <text class="svg-small" x="785" y="111">0 · ≥ 1 curso</text>
+            <text class="svg-small" x="785" y="148">1 · error técnico</text>
+            <text class="svg-small" x="785" y="185">2 · cero cursos</text>
+            <text class="svg-small" x="480" y="265">Guarda datos y logs por separado; evita mezclar stderr con stdout.</text>
+          </svg>
+          <figcaption>Con <code>--output -</code> se selecciona JSON-LD si no se indicó otro formato.</figcaption>
+        </figure>
+        <pre><code>uv run cursodex run -p openlearn --limit 5 --output - \
+  &gt; cursos.jsonld 2&gt; ejecucion.log</code></pre>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Código</th><th>Significado</th><th>Interpretación operativa</th></tr></thead>
+            <tbody>
+              <tr><td class="status ok">0</td><td>Éxito, uno o más cursos</td><td>Valida `needs_review` y continúa con curaduría.</td></tr>
+              <tr><td class="status error">1</td><td>Excepción, red, parsing o argumentos</td><td>Consulta `stderr` y `run_summary`.</td></tr>
+              <tr><td class="status review">2</td><td>Sin cursos y sin error técnico</td><td>Revisa URL, filtros o cambios de API/DOM.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="serializacion">
+        <h2>4. Un modelo, dos vistas semánticas</h2>
+        <p>El modelo estático <code>Course</code> normaliza el registro una vez. Los exportadores proyectan los metadatos en Schema.org y Dublin Core; los datos de deduplicación y curaduría se conservan en campos privados para el flujo de n8n.</p>
+        <figure class="diagram">
+          <svg viewBox="0 0 940 350" role="img" aria-labelledby="rdf-title rdf-desc">
+            <title id="rdf-title">Doble serialización desde Course a Schema.org, Dublin Core y metadata privada</title>
+            <desc id="rdf-desc">Course Pydantic v2 produce schema:Course público, un espejo dcterms para OAI-PMH y metadatos privados de hash, fecha y revisión.</desc>
+            <defs>
+              <marker id="arrow3" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="var(--brand)"/></marker>
+            </defs>
+            <rect class="svg-box-primary" x="24" y="120" width="205" height="105" rx="16"/>
+            <text class="svg-text" x="126" y="158" text-anchor="middle">Course</text>
+            <text class="svg-small" x="126" y="190" text-anchor="middle">Pydantic v2 · normalizado</text>
+            <path d="M229 172 H300 V70 H355" fill="none" stroke="var(--brand)" stroke-width="3" marker-end="url(#arrow3)"/>
+            <path d="M300 172 V172 H355" fill="none" stroke="var(--brand)" stroke-width="3" marker-end="url(#arrow3)"/>
+            <path d="M300 172 V273 H355" fill="none" stroke="var(--brand)" stroke-width="3" marker-end="url(#arrow3)"/>
+            <rect class="svg-box-green" x="370" y="30" width="525" height="85" rx="15"/>
+            <text class="svg-text" x="395" y="61">Público · Schema.org</text>
+            <text class="svg-small" x="395" y="91">schema:Course · nombre, URL, descripción, about, keywords</text>
+            <rect class="svg-box" x="370" y="132" width="525" height="85" rx="15"/>
+            <text class="svg-text" x="395" y="163">Espejo · Dublin Core</text>
+            <text class="svg-small" x="395" y="193">dcterms:title, identifier, publisher, description, subject</text>
+            <rect class="svg-box-primary" x="370" y="234" width="525" height="85" rx="15"/>
+            <text class="svg-text" x="395" y="265">Privado · Omeka / Cursodex</text>
+            <text class="svg-small" x="395" y="295">identifier + dateModified · is_public:false · _cursodex_meta</text>
+          </svg>
+          <figcaption>Los valores de propiedad JSON-LD llevan <code>property_id: "auto"</code>. Los recursos nuevos son privados por defecto.</figcaption>
+        </figure>
+        <div class="notice warning"><strong>Sin categoría válida:</strong> <code>Pendiente_Categoria</code> queda en <code>_cursodex_meta.category</code> y se omiten las propiedades públicas <code>schema:about</code> y <code>dcterms:subject</code>.</div>
+      </section>
+
+      <section id="uso">
+        <h2>5. Recetario CLI</h2>
+        <p>Los paneles se pueden desplegar para copiar la receta. Los comandos de muestra usan los nombres canónicos de proveedor y el ejecutable instalado por uv.</p>
+        <details open>
+          <summary>Instalación reproducible · PowerShell</summary>
+          <pre><code>git clone https://github.com/eddiebardad/cursos.git
+Set-Location cursos
+uv sync --frozen --link-mode=copy
+uv run playwright install chromium</code></pre>
+        </details>
+        <details>
+          <summary>Instalación reproducible · Bash</summary>
+          <pre><code>git clone https://github.com/eddiebardad/cursos.git
+cd cursos
+uv sync --frozen --link-mode=copy
+uv run playwright install chromium</code></pre>
+        </details>
+        <details>
+          <summary>Prueba rápida de cada proveedor</summary>
+          <pre><code>uv run cursodex run -p ms_learn --limit 5 --output -
+uv run cursodex run -p openlearn --limit 5 --output -
+uv run cursodex run -p aprende --limit 5 --output -
+uv run cursodex run -p netacad --limit 5 --output -</code></pre>
+        </details>
+        <details>
+          <summary>CSV para importación o JSON-LD a archivo</summary>
+          <pre><code>uv run cursodex run -p aprende --limit 100 --output cursos.csv --format csv
+uv run cursodex run -p openlearn --limit 20 --output cursos.jsonld</code></pre>
+          <p>El CSV es UTF-8 sin BOM; usa `;` para valores multivalor. JSON-LD es adecuado para el flujo de ingesta de n8n.</p>
+        </details>
+        <details>
+          <summary>Microsoft Learn: añadir módulos</summary>
+          <pre><code>uv run cursodex run -p ms_learn --enable-modules --limit 10 --output -</code></pre>
+          <p>Por defecto Microsoft Learn extrae learning paths; activa módulos solo si necesitas ese nivel de granularidad.</p>
+        </details>
+        <details>
+          <summary>URL individual y BFS genérico controlado</summary>
+          <pre><code>uv run cursodex run --url "https://www.open.edu/openlearn/&lt;area&gt;/&lt;curso&gt;" --output -
+uv run cursodex run --url "https://example.org/catalog" --enable-bfs --max-pages 20 --limit 10</code></pre>
+          <p>Usa la URL real de la ficha. BFS está desactivado por defecto y solo se activa explícitamente para sitios sin adaptador.</p>
+        </details>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Opción</th><th>Propósito</th></tr></thead>
+            <tbody>
+              <tr><td><code>--url, -u</code></td><td>URL de catálogo o curso; el dominio detecta el proveedor.</td></tr>
+              <tr><td><code>--provider, -p</code></td><td><code>ms_learn</code>, <code>openlearn</code>, <code>aprende</code> o <code>netacad</code>.</td></tr>
+              <tr><td><code>--output, -o</code></td><td>Archivo de destino o <code>-</code> para stdout (JSON-LD por defecto).</td></tr>
+              <tr><td><code>--format, -f</code></td><td><code>csv</code> o <code>jsonld</code>; si se omite, se infiere y <code>-</code> usa JSON-LD por defecto.</td></tr>
+              <tr><td><code>--limit, -l</code></td><td>Máximo de cursos válidos; 0 no limita.</td></tr>
+              <tr><td><code>--render</code></td><td>Playwright para JavaScript; NetAcad siempre lo usa.</td></tr>
+              <tr><td><code>--enable-bfs</code></td><td>Activa el rastreo BFS genérico.</td></tr>
+              <tr><td><code>--enable-modules</code></td><td>Añade módulos de Microsoft Learn a learning paths.</td></tr>
+              <tr><td><code>--max-pages</code></td><td>Máximo de páginas de BFS; por defecto 100.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="payload">
+        <h2>6. Payloads de ejemplo</h2>
+        <p>Ejemplo abreviado con la forma real que utiliza el exportador Omeka S. Cada valor de propiedad incluye el identificador de propiedad automático. Las propiedades privadas quedan marcadas expresamente.</p>
+        <pre><code>[
+  {
+    "@type": ["o:Item", "schema:Course"],
+    "o:is_public": false,
+    "schema:name": [
+      {"type": "literal", "property_id": "auto", "@value": "Introducción a Python", "@language": "es"}
+    ],
+    "schema:url": [
+      {"type": "uri", "property_id": "auto", "@id": "https://example.edu/courses/python"}
+    ],
+    "schema:description": [
+      {"type": "literal", "property_id": "auto", "@value": "Fundamentos del lenguaje y sus herramientas.", "@language": "es"}
+    ],
+    "schema:about": [
+      {"type": "literal", "property_id": "auto", "@value": "Programación y Desarrollo de Software"}
+    ],
+    "schema:identifier": [
+      {"type": "literal", "property_id": "auto", "@value": "urn:cursodex:sha256:&lt;sha256&gt;", "is_public": false}
+    ],
+    "schema:dateModified": [
+      {"type": "literal", "property_id": "auto", "@value": "2026-01-15T12:00:00Z", "is_public": false}
+    ],
+    "dcterms:title": [
+      {"type": "literal", "property_id": "auto", "@value": "Introducción a Python"}
+    ],
+    "dcterms:subject": [
+      {"type": "literal", "property_id": "auto", "@value": "Programación y Desarrollo de Software"}
+    ],
+    "_cursodex_meta": {
+      "canonical_url": "https://example.edu/courses/python",
+      "content_hash": "&lt;sha256&gt;",
+      "category": "Programación y Desarrollo de Software",
+      "access_type": "free_no_certificate",
+      "needs_review": false,
+      "review_notes": []
+    }
+  }
+]</code></pre>
+        <p class="small">El hash y la fecha son marcadores ilustrativos. En una extracción, el modelo los calcula o asigna. Si la categoría es pendiente, elimina del payload público las claves <code>schema:about</code> y <code>dcterms:subject</code>; el bloque privado conserva la categoría para curaduría.</p>
+        <h3>CSV: cabeceras canónicas</h3>
+        <pre><code>dcterms:title,dcterms:identifier,dcterms:publisher,dcterms:creator,dcterms:description,dcterms:language,dcterms:subject,schema:name,schema:url,schema:description,schema:provider,schema:author,schema:about,schema:keywords,schema:timeRequired,schema:educationalLevel,schema:inLanguage,schema:isAccessibleForFree,schema:educationalCredentialAwarded,schema:coursePrerequisites,schema:image,canonical_url,content_hash,access_type,needs_review,review_notes,last_seen_at</code></pre>
+        <p class="small">En el archivo CSV real, la coma es el delimitador de columnas; los valores de listas dentro de una celda se separan por punto y coma.</p>
+      </section>
+
+      <section id="vocabulario">
+        <h2>7. Catálogo de categorías y niveles</h2>
+        <p>El vocabulario fuente se mantiene en <a href="../mappings/vocab_map.yml">mappings/vocab_map.yml</a>. Las coincidencias se prueban desde las categorías tecnológicas específicas hasta las áreas generales.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Referencia</th><th>Etiqueta canónica</th></tr></thead>
+            <tbody>
+              <tr><td>0613 / DigComp 2.2</td><td>Ciencia de Datos e Inteligencia Artificial</td></tr>
+              <tr><td>0612 / DigComp 2.2</td><td>Redes, Cloud y Ciberseguridad</td></tr>
+              <tr><td>0613 / DigComp 2.2</td><td>Programación y Desarrollo de Software</td></tr>
+              <tr><td>0414 / DigComp 2.2</td><td>Marketing Digital y Comercio Electrónico</td></tr>
+              <tr><td>0011 / DigComp 2.2</td><td>Competencias Digitales y Ofimática</td></tr>
+              <tr><td>061</td><td>Tecnologías de la Información y la Comunicación (General)</td></tr>
+              <tr><td>04</td><td>Administración de Empresas y Derecho</td></tr>
+              <tr><td>07</td><td>Ingeniería, Industria y Construcción</td></tr>
+              <tr><td>05</td><td>Ciencias Naturales, Matemáticas y Estadística</td></tr>
+              <tr><td>09</td><td>Salud y Bienestar</td></tr>
+              <tr><td>01</td><td>Educación y Pedagogía</td></tr>
+              <tr><td>02</td><td>Artes y Humanidades</td></tr>
+              <tr><td>03</td><td>Ciencias Sociales, Periodismo e Información</td></tr>
+              <tr><td>023</td><td>Idiomas y Filología</td></tr>
+              <tr><td>10</td><td>Servicios y Desarrollo Personal</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><strong>Niveles:</strong> Principiante, Intermedio y Avanzado.</p>
+        <p><strong>Idiomas normalizados:</strong> es, en, pt, fr, de e it (ISO 639-1).</p>
+      </section>
+
+      <section id="revision">
+        <h2>8. Normalización y triaje automático</h2>
+        <div class="grid">
+          <article class="card">
+            <h3>Identidad</h3>
+            <p>HTTPS, host normalizado, tracking eliminado y query params funcionales preservados.</p>
+          </article>
+          <article class="card">
+            <h3>Descripción</h3>
+            <p>HTML y entidades limpiados; texto acotado legalmente a un máximo de 350 caracteres.</p>
+          </article>
+          <article class="card">
+            <h3>Duración</h3>
+            <p>Convertida a ISO 8601, por ejemplo <code>4 días</code> → <code>P4D</code>.</p>
+          </article>
+          <article class="card">
+            <h3>Huella</h3>
+            <p>SHA-256 estable de los campos descriptivos y pedagógicos; no incorpora el timestamp.</p>
+          </article>
+        </div>
+        <h3>¿Cuándo se activa <code>needs_review</code>?</h3>
+        <ul>
+          <li>La descripción está ausente o tiene menos de 30 caracteres.</li>
+          <li>No se pudo normalizar el idioma.</li>
+          <li>La categoría resulta <code>Pendiente_Categoria</code>.</li>
+          <li>Una duración proporcionada no pudo interpretarse como ISO 8601.</li>
+        </ul>
+        <p><code>review_notes</code> registra motivos legibles para que una persona pueda priorizar la curaduría. Un nivel educativo ausente no basta por sí solo para activar la revisión.</p>
+        <div class="notice good"><strong>Principio de catálogo limpio:</strong> los registros sin categoría siguen siendo útiles para triage, pero no contaminan las facetas públicas del grafo RDF.</div>
+      </section>
+
+      <section id="errores">
+        <h2>9. Resolución de problemas</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Problema</th><th>Acción</th></tr></thead>
+            <tbody>
+              <tr><td>Falta Chromium / error Playwright</td><td>Ejecuta <code>uv run playwright install chromium</code> en el entorno activo.</td></tr>
+              <tr><td>Código 2 y <code>[]</code></td><td>Consulta proveedor, URL y `run_summary`; puede haber un cambio externo en DOM o API.</td></tr>
+              <tr><td>HTTP 403 / WAF</td><td>Respeta las restricciones del proveedor, revisa conectividad y vuelve a intentar más tarde; no evadas controles.</td></tr>
+              <tr><td>Salida estructurada mezclada con mensajes</td><td>Separa los canales con <code>&gt; datos 2&gt; logs</code>; no redirijas ambos a un mismo flujo JSON.</td></tr>
+              <tr><td>Acentos incorrectos en hoja de cálculo</td><td>Importa explícitamente el CSV con codificación UTF-8.</td></tr>
+              <tr><td>Descripción corta o categoría pendiente</td><td>Lee <code>review_notes</code> y resuelve la metadata en la curaduría.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <footer>
+        <p>Manual autocontenido de Cursodex Extractor v0.3.0. No necesita JavaScript ni recursos externos para navegar, imprimir o guardarse como PDF.</p>
+        <p><a href="../README.md">README</a> · <a href="../ARCHITECTURE.md">Arquitectura</a> · <a href="../PLAN.md">Plan técnico</a> · <a href="USER_GUIDE.md">Guía de usuario</a></p>
+      </footer>
+    </main>
+  </div>
+</body>
+</html>
