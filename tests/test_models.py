@@ -37,7 +37,8 @@ from schemas.models import (
 def test_canonical_url_preserves_legitimate_params_and_strips_tracking():
     raw_url = (
         "http://ACADEMY.Hubspot.COM/courses/python-intro/?"
-        "utm_source=facebook&lang=es&utm_medium=cpc&id=42&ref=partner&fbclid=XYZ123#curriculum"
+        "utm_source=facebook&lang=es&utm_medium=cpc&id=42&ref=partner&fbclid=XYZ123"
+        "&WT.mc_id=api_CatalogApi#curriculum"
     )
     course = Course(
         name="Introducción a Python",

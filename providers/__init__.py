@@ -19,10 +19,15 @@ def get_provider_by_name(name: str) -> ProviderBase | None:
     """Find and instantiate a provider explicitly by its class or provider_name."""
     name_normalized = _normalize_provider_name(name)
     for provider_cls in ProviderBase._registry:
-        if name_normalized in {
+        registered_names = {
             _normalize_provider_name(provider_cls.provider_name),
             _normalize_provider_name(provider_cls.__name__),
-        }:
+            *(
+                _normalize_provider_name(alias)
+                for alias in provider_cls.provider_aliases
+            ),
+        }
+        if name_normalized in registered_names:
             return provider_cls()
     return None
 

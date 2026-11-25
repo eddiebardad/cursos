@@ -24,6 +24,7 @@ class ProviderBase(ABC):
     """
 
     provider_name: str = "Base"
+    provider_aliases: ClassVar[tuple[str, ...]] = ()
     default_url: str | None = None  # URL de entrada por defecto para el proveedor
 
     # Registry to store all adapter subclasses

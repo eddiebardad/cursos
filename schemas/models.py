@@ -217,6 +217,7 @@ TRACKING_QUERY_PARAMS = {
     "_hsenc",
     "_hsmi",
     "mkt_tok",
+    "wt.mc_id",
 }
 
 
