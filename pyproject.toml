@@ -37,7 +37,6 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.uv]
-package = false
 link-mode = "copy"
 
 [dependency-groups]
@@ -50,18 +49,16 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = [
+"only-include" = [
+    "cli.py",
+    "config.py",
     "core",
+    "utils",
     "exporters",
-    "mappings",
     "providers",
     "schemas",
-    "utils",
+    "mappings/vocab_map.yml",
 ]
-
-[tool.hatch.build.targets.wheel.sources]
-"cli.py" = "cli.py"
-"config.py" = "config.py"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

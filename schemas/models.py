@@ -532,7 +532,7 @@ class Course(BaseModel):
             clean_lang = resolve_language(clean_lang)
 
         # 10. Normalización de duración a ISO 8601
-        notes = list(self.review_notes)
+        notes = clean_and_dedup_list(self.review_notes) or []
         clean_dur = self.time_required
         if clean_dur is not None:
             norm_dur, dur_valid = parse_and_normalize_duration(clean_dur)
@@ -553,10 +553,7 @@ class Course(BaseModel):
             notes.append("Categoría no identificada en vocabulario controlado (Pendiente_Categoria)")
 
         # Desduplicar y ordenar notas de revisión
-        dedup_notes: list[str] = []
-        for n in notes:
-            if n not in dedup_notes:
-                dedup_notes.append(n)
+        dedup_notes = clean_and_dedup_list(notes) or []
 
         # 12. Cálculo del hash determinista de contenido
         calc_hash = compute_course_content_hash(

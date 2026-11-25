@@ -30,7 +30,13 @@ class NetacadProvider(ProviderBase):
     def should_crawl(self, url: str) -> bool:
         return False   # We control crawling entirely in scrape()
 
-    def scrape(self, url: str, render: bool = False) -> Iterator[Course]:
+    def scrape(
+        self,
+        url: str,
+        render: bool = False,
+        limit: int = 0,
+        enable_modules: bool = False,
+    ) -> Iterator[Course]:
         engine = "Playwright" if render else "Sitemap (static)"
         logger.info(f"Scraping Netacad | Strategy: {engine}")
 

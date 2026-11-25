@@ -10,14 +10,19 @@ Suite exhaustiva de pruebas para:
 
 import io
 import json
+import os
+import subprocess
+import sys
 from collections.abc import Iterator
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from cli import app
 from exporters.csv_exporter import CSVExporter
 from exporters.jsonld_exporter import JSONLDExporter
+from providers import get_provider_by_name
 from providers.base import ProviderBase
 from schemas.models import AccessType, Course
 
@@ -192,7 +197,13 @@ class MockSampleProvider(ProviderBase):
     def can_handle(cls, url: str) -> bool:
         return "mock.example.com" in url
 
-    def scrape(self, url: str, render: bool = False) -> Iterator[Course]:
+    def scrape(
+        self,
+        url: str,
+        render: bool = False,
+        limit: int = 0,
+        enable_modules: bool = False,
+    ) -> Iterator[Course]:
         courses = _create_sample_courses()
         yield from courses
 
@@ -205,7 +216,13 @@ class MockEmptyProvider(ProviderBase):
     def can_handle(cls, url: str) -> bool:
         return "empty.example.com" in url
 
-    def scrape(self, url: str, render: bool = False) -> Iterator[Course]:
+    def scrape(
+        self,
+        url: str,
+        render: bool = False,
+        limit: int = 0,
+        enable_modules: bool = False,
+    ) -> Iterator[Course]:
         return
         yield  # generator vacío
 
@@ -262,6 +279,62 @@ def test_cli_limit_parameter():
     assert result.exit_code == 0
     parsed = json.loads(result.stdout)
     assert len(parsed) == 1
+
+
+def test_cli_forwards_provider_options_and_normalizes_provider_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_options: dict[str, object] = {}
+
+    def scrape(
+        _self: MockSampleProvider,
+        url: str,
+        render: bool = False,
+        limit: int = 0,
+        enable_modules: bool = False,
+    ) -> Iterator[Course]:
+        captured_options.update(
+            url=url,
+            render=render,
+            limit=limit,
+            enable_modules=enable_modules,
+        )
+        yield from _create_sample_courses()
+
+    monkeypatch.setattr(MockSampleProvider, "scrape", scrape)
+
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "--provider",
+            "MOCK_SAMPLE",
+            "--limit",
+            "1",
+            "--enable-modules",
+            "--output",
+            "-",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured_options == {
+        "url": MockSampleProvider.default_url,
+        "render": False,
+        "limit": 1,
+        "enable_modules": True,
+    }
+
+
+def test_provider_name_lookup_ignores_case_spaces_and_separators() -> None:
+    aprende = get_provider_by_name(" APRENDE ")
+    netacad = get_provider_by_name("net_acad")
+
+    assert aprende is not None
+    assert aprende.provider_name == "Aprende"
+    assert netacad is not None
+    assert netacad.provider_name == "Netacad"
+    assert get_provider_by_name("NETACAD") is not None
 
 
 def test_cli_no_args_exits_code_1():
@@ -347,13 +420,11 @@ def test_csv_semicolon_escaping_in_lists():
 # 5. Pruebas Reales de Subproceso en Sistema Operativo (Contrato Unix)
 # ==============================================================================
 def test_cli_subprocess_invalid_limit():
-    import subprocess
-    import sys
-
     res = subprocess.run(
         [sys.executable, "cli.py", "--limit", "invalido", "--output", "-"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     assert res.returncode == 1
     assert res.stdout == ""
@@ -362,13 +433,11 @@ def test_cli_subprocess_invalid_limit():
 
 
 def test_cli_subprocess_unknown_flag():
-    import subprocess
-    import sys
-
     res = subprocess.run(
         [sys.executable, "cli.py", "--flag-inexistente"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     assert res.returncode == 1
     assert res.stdout == ""
@@ -376,13 +445,11 @@ def test_cli_subprocess_unknown_flag():
 
 
 def test_cli_subprocess_no_args():
-    import subprocess
-    import sys
-
     res = subprocess.run(
         [sys.executable, "cli.py"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     assert res.returncode == 1
     assert res.stdout == ""  # Exactamente 0 bytes en stdout
@@ -391,13 +458,49 @@ def test_cli_subprocess_no_args():
 
 
 def test_cli_subprocess_help():
-    import subprocess
-    import sys
-
     res = subprocess.run(
         [sys.executable, "cli.py", "--help"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     assert res.returncode == 0
     assert "Cursodex" in res.stdout
+
+
+def test_installed_console_script_help_commands_and_no_arguments() -> None:
+    console_script = Path(sys.executable).with_name(
+        "cursodex.exe" if os.name == "nt" else "cursodex"
+    )
+    assert console_script.is_file()
+
+    top_level_help = subprocess.run(
+        [str(console_script), "--help"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    run_help = subprocess.run(
+        [str(console_script), "run", "--help"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    no_arguments = subprocess.run(
+        [str(console_script)],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+
+    assert top_level_help.returncode == 0
+    assert "Cursodex" in top_level_help.stdout
+    assert "extracción" in top_level_help.stdout
+    assert run_help.returncode == 0
+    assert "run" in run_help.stdout
+    assert no_arguments.returncode == 1
+    assert no_arguments.stdout == ""
+    assert "run_summary" in no_arguments.stderr

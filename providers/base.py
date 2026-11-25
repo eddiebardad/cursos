@@ -49,6 +49,12 @@ class ProviderBase(ABC):
         return True
 
     @abstractmethod
-    def scrape(self, url: str, render: bool = False) -> Iterator[Course]:
+    def scrape(
+        self,
+        url: str,
+        render: bool = False,
+        limit: int = 0,
+        enable_modules: bool = False,
+    ) -> Iterator[Course]:
         """Fetch the page and yield normalized Course records."""
         pass

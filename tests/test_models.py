@@ -491,3 +491,37 @@ def test_text_sanitization_and_deduplication():
             in_language="es",
         )
     assert "El nombre del curso no puede estar vacío" in str(exc.value)
+
+
+def test_external_review_notes_are_cleaned_and_preserved():
+    course = Course(
+        name="Introducción a Python",
+        url="https://example.com/cursos/python",
+        description="Aprende fundamentos de Python con ejercicios prácticos.",
+        in_language="es",
+        review_notes=[
+            "  Nota externa de <b>curaduría</b>  ",
+            "Nota externa de curaduría",
+            "   ",
+        ],
+    )
+
+    assert course.review_notes == ["Nota externa de curaduría"]
+    assert course.needs_review is True
+
+
+def test_external_review_notes_are_idempotent_with_automatic_notes():
+    course = Course(
+        name="Curso sin categoría identificada",
+        url="https://example.com/cursos/sin-categoria",
+        description="Breve",
+        review_notes=[" Nota externa ", "Nota externa"],
+    )
+
+    restored = Course.model_validate(course.model_dump())
+
+    assert course.review_notes[0] == "Nota externa"
+    assert len(course.review_notes) == len(set(course.review_notes))
+    assert restored.review_notes == course.review_notes
+    assert restored.needs_review is course.needs_review is True
+    assert restored.content_hash == course.content_hash

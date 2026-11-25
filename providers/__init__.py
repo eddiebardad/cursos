@@ -1,5 +1,6 @@
 import importlib
 import pkgutil
+import re
 
 from .base import ProviderBase
 
@@ -16,8 +17,15 @@ def get_provider_for_url(url: str) -> ProviderBase | None:
 
 def get_provider_by_name(name: str) -> ProviderBase | None:
     """Find and instantiate a provider explicitly by its class or provider_name."""
-    name_lower = name.lower()
+    name_normalized = _normalize_provider_name(name)
     for provider_cls in ProviderBase._registry:
-        if provider_cls.provider_name.lower() == name_lower or provider_cls.__name__.lower() == name_lower:
+        if name_normalized in {
+            _normalize_provider_name(provider_cls.provider_name),
+            _normalize_provider_name(provider_cls.__name__),
+        }:
             return provider_cls()
     return None
+
+
+def _normalize_provider_name(name: str) -> str:
+    return re.sub(r"[\s_-]+", "", name).casefold()

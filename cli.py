@@ -189,7 +189,12 @@ def _execute_scrape(
 
         if provider_instance:
             assert target_url is not None
-            for course in provider_instance.scrape(target_url, render=render):
+            for course in provider_instance.scrape(
+                target_url,
+                render=render,
+                limit=limit,
+                enable_modules=enable_modules,
+            ):
                 courses.append(course)
                 if limit > 0 and len(courses) >= limit:
                     break
@@ -320,6 +325,11 @@ def main_callback(
 
 
 def main() -> None:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8")
+
     try:
         rc = app(standalone_mode=False)
         sys.exit(rc if isinstance(rc, int) else 0)

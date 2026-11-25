@@ -15,7 +15,13 @@ class HubspotProvider(ProviderBase):
     def can_handle(cls, url: str) -> bool:
         return "academy.hubspot.com" in urllib.parse.urlparse(url).netloc
 
-    def scrape(self, url: str, render: bool = False) -> Iterator[Course]:
+    def scrape(
+        self,
+        url: str,
+        render: bool = False,
+        limit: int = 0,
+        enable_modules: bool = False,
+    ) -> Iterator[Course]:
         logger.info(f"Scraping {self.provider_name} URL: {url}")
 
         html = self.crawler.get(url, render=render)

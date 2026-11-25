@@ -32,7 +32,13 @@ class AprendeProvider(ProviderBase):
         # we handle everything through their private API directly.
         return False
 
-    def scrape(self, url: str, render: bool = False) -> Iterator[Course]:
+    def scrape(
+        self,
+        url: str,
+        render: bool = False,
+        limit: int = 0,
+        enable_modules: bool = False,
+    ) -> Iterator[Course]:
         """Fetch the full course catalogue from the Aprende.org backend API."""
         logger.info(f"Fetching full course list from {_API_ROOT}/api/Courses?platformId=2")
         try:
