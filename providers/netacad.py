@@ -1,9 +1,11 @@
-from typing import Iterator, List, Optional
-import urllib.parse
 import re
-from .base import ProviderBase
+import urllib.parse
+from collections.abc import Iterator
+
 from schemas.models import Course
 from utils.logger import get_logger
+
+from .base import ProviderBase
 
 logger = get_logger(__name__)
 
@@ -116,14 +118,14 @@ class NetacadProvider(ProviderBase):
 
     # ───────────────────────────── Private helpers ─────────────────────────────
 
-    def _fetch_html(self, url: str, render: bool = False) -> Optional[str]:
+    def _fetch_html(self, url: str, render: bool = False) -> str | None:
         try:
             return self.crawler.get(url, render=render)
         except Exception as e:
             logger.error(f"Fetch failed for {url}: {e}")
             return None
 
-    def _course_links_from_sitemap(self, sitemap_url: str) -> List[str]:
+    def _course_links_from_sitemap(self, sitemap_url: str) -> list[str]:
         """Parse the XML sitemap and return all /courses/ URLs."""
         html = self._fetch_html(sitemap_url, render=False)
         if not html:
@@ -136,14 +138,14 @@ class NetacadProvider(ProviderBase):
         logger.info(f"Sitemap yielded {len(links)} course URLs.")
         return links
 
-    def _course_links_from_html(self, html: str, base_url: str) -> List[str]:
+    def _course_links_from_html(self, html: str, base_url: str) -> list[str]:
         """Extract /courses/* links from a rendered HTML page."""
         from core.parser import Parser
         soup = Parser.parse_html(html)
         all_links = Parser.extract_internal_links(soup, base_url)
-        return [l for l in all_links if "/courses/" in l]
+        return [link for link in all_links if "/courses/" in link]
 
-    def _extract_course(self, html: str, url: str) -> Optional[Course]:
+    def _extract_course(self, html: str, url: str) -> Course | None:
         """Parse a course detail page into a Course model."""
         course = self.parser.parse_course_page(html, url)
 
@@ -153,9 +155,9 @@ class NetacadProvider(ProviderBase):
             h1 = soup.find("h1")
             title = h1.get_text(strip=True) if h1 else url
             og_desc = soup.find("meta", property="og:description")
-            desc = og_desc.get("content") if og_desc else None
+            desc = str(og_desc.get("content")) if og_desc and og_desc.get("content") else None
             og_img = soup.find("meta", property="og:image")
-            img = og_img.get("content") if og_img else None
+            img = str(og_img.get("content")) if og_img and og_img.get("content") else None
             from schemas.models import Course as CourseModel
             try:
                 course = CourseModel(name=title, url=url, description=desc, image=img)
@@ -163,20 +165,26 @@ class NetacadProvider(ProviderBase):
                 return None
 
         if course:
-            course.provider = self.provider_name
-            # Enrich with heuristic text mining
+            data = course.model_dump()
+            data["provider"] = self.provider_name
             from bs4 import BeautifulSoup
             soup = BeautifulSoup(html, "html.parser")
             text = soup.get_text(separator=" ", strip=True)
 
-            if not course.timeRequired:
+            if not data.get("time_required"):
                 dur = re.search(r"(\d+)\s*HOURS?", text, flags=re.I)
                 if dur:
-                    course.timeRequired = f"PT{dur.group(1)}H"
+                    data["time_required"] = f"PT{dur.group(1)}H"
 
-            if not course.educationalLevel:
+            if not data.get("educational_level"):
                 lvl = re.search(r"\b(BEGINNER|INTERMEDIATE|ADVANCED)\b", text, flags=re.I)
                 if lvl:
-                    course.educationalLevel = lvl.group(1).capitalize()
+                    data["educational_level"] = lvl.group(1).capitalize()
+
+            from schemas.models import Course as CourseModel
+            try:
+                course = CourseModel.model_validate(data)
+            except Exception:
+                pass
 
         return course

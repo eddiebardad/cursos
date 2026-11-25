@@ -17,6 +17,7 @@ import sys
 import time
 from typing import Annotated
 
+import click
 import typer
 
 from core.crawler import crawl_site
@@ -31,7 +32,9 @@ logger = get_logger(__name__)
 
 app = typer.Typer(
     help="Cursodex Extractor CLI — Motor de extracción y normalización semántica de cursos.",
+    pretty_exceptions_enable=False,
     add_completion=False,
+    rich_markup_mode=None,
 )
 
 
@@ -72,7 +75,7 @@ def _execute_scrape(
     provider_instance = None
     target_url = url
     provider_name: str | None = None
-    courses = []
+    courses: list = []
 
     try:
         # 1. Validación inicial de URL y Provider
@@ -185,15 +188,17 @@ def _execute_scrape(
         logger.info(f"Iniciando extracción en {target_url} (límite: {limit if limit > 0 else 'sin límite'})")
 
         if provider_instance:
+            assert target_url is not None
             for course in provider_instance.scrape(target_url, render=render):
                 courses.append(course)
                 if limit > 0 and len(courses) >= limit:
                     break
         else:
-            for html, current_url in crawl_site(target_url, provider=None, render=render, max_pages=max_pages):  # type: ignore[arg-type]
-                course = parse_course_page(html, current_url)
-                if course:
-                    courses.append(course)
+            assert target_url is not None
+            for html, current_url in crawl_site(target_url, provider=None, render=render, max_pages=max_pages):
+                parsed_course = parse_course_page(html, current_url)
+                if parsed_course is not None:
+                    courses.append(parsed_course)
                     if limit > 0 and len(courses) >= limit:
                         break
 
@@ -299,12 +304,49 @@ def main_callback(
                 max_pages=max_pages,
             )
         else:
-            sys.stderr.write(ctx.get_help() + "\n")
+            sys.stderr.write(
+                "Error: Debe especificar al menos una URL (--url / -u) o un proveedor (--provider / -p). "
+                "Use --help para ver las opciones disponibles.\n"
+            )
+            emit_run_summary(
+                provider=None,
+                url=None,
+                courses_extracted=0,
+                needs_review_count=0,
+                exit_code=1,
+                elapsed_seconds=0.0,
+            )
             raise typer.Exit(code=1)
 
 
-def main():
-    app()
+def main() -> None:
+    try:
+        rc = app(standalone_mode=False)
+        sys.exit(rc if isinstance(rc, int) else 0)
+    except click.ClickException as exc:
+        sys.stderr.write(f"Error de CLI: {exc.format_message()}\n")
+        emit_run_summary(
+            provider=None,
+            url=None,
+            courses_extracted=0,
+            needs_review_count=0,
+            exit_code=1,
+            elapsed_seconds=0.0,
+        )
+        sys.exit(1)
+    except typer.Exit as exc:
+        sys.exit(exc.exit_code)
+    except Exception as exc:
+        logger.error(f"Error inesperado: {exc}", exc_info=True)
+        emit_run_summary(
+            provider=None,
+            url=None,
+            courses_extracted=0,
+            needs_review_count=0,
+            exit_code=1,
+            elapsed_seconds=0.0,
+        )
+        sys.exit(1)
 
 
 if __name__ == "__main__":

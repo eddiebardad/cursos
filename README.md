@@ -1,85 +1,167 @@
-# Course Scraper
+# Cursodex Extractor (`cursodex-extractor`)
 
-Welcome to the **Course Scraper**! This tool is a robust, scalable web scraping architecture designed to extract educational course metadata from various websites (like NetAcad, Aprende.org, and generic catalogs). 
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![Checked with mypy](https://www.mypy-lang.org/static/mypy_badge.svg)](https://mypy-lang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-It normalizes this diverse data into a flat, Schema.org-compliant CSV format, making it incredibly easy to import into content management systems like **Omeka S**.
+**Motor CLI ligero, sin estado (*stateless*) y de alta fidelidad semántica para la extracción, normalización y exportación de cursos gratuitos en línea.**  
+Diseñado como el componente de ingesta del proyecto académico **Cursodex** (TFM).
 
-> [!TIP]
-> **New to the project?** You can consult the online documentation at [https://eddiebardad.github.io/cursos/](https://eddiebardad.github.io/cursos/) or read the local [User Guide](docs/user_guide.md) for an in-depth look at the architecture, how the CLI works, and how to add new scraping providers!
-
-## Quick Start & Installation
-
-Ensure you have **Python 3.9+** installed. We recommend using a modern Python manager like `uv`.
-
-1. **Install Base Requirements:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-2. **Install Playwright Browsers (Optional but recommended):**
-   If you plan to scrape JavaScript-heavy dynamic sites (SPAs), you must install the Playwright browser binaries:
-   ```bash
-   playwright install chromium
-   ```
-
-## Usage Examples
-
-The scraper uses a unified CLI that automatically detects which site adapter to use based on the URL you provide. If it doesn't recognize the domain, it falls back to a powerful generic crawler that heuristically searches for Schema.org JSON-LD or OpenGraph metadata.
-
-### 1. Generic Core on a Static Site
-When you point the scraper to a generic site, it will spider the domain up to the specified `--max-pages` and attempt to parse any course pages it finds.
-```bash
-# Spider up to 50 pages on a generic site using fast, static HTTP requests
-uv run python cli.py --url "https://example-university.edu/courses" --max-pages 50 --output generic_results.csv
-```
-
-### 2. Running the `aprende.org` Provider
-The `aprende.org` adapter is specially designed to bypass HTML scraping and map their hidden API directly to our standard format.
-```bash
-# Provide a specific course URL; the adapter will intercept it and query the API
-uv run python cli.py --url "https://aprende.org/pages.php?r=.m_curso&cursoID=123" --max-pages 1 --output aprende.csv
-```
-
-### 3. Running `netacad.com` (With and Without Render)
-NetAcad can be scraped statically, but if the content is heavily dynamic, you can toggle the Playwright JavaScript engine on demand.
-
-**Without Rendering (Fast, Static HTTP):**
-```bash
-uv run python cli.py --url "https://www.netacad.com/courses/all-courses" --max-pages 20
-```
-
-**With Rendering (Slower, Executes JavaScript):**
-```bash
-# Note: Requires `playwright install` to have been run!
-uv run python cli.py --url "https://www.netacad.com/courses/all-courses" --max-pages 20 --render --output netacad_dynamic.csv
-```
-
-## Logging & Run Summaries
-
-The CLI includes a built-in incremental logger. Every time a scrape finishes (successfully or with an error), a summary of the run is appended to `scraper_runs.log`. This file tracks:
-- Run status (SUCCESS or FAILED)
-- The URL and provider used
-- The output file generated
-- The total number of courses extracted
-- Any error messages encountered
+El sistema extrae metadatos educativos de plataformas abiertas (Microsoft Learn, HubSpot Academy, Aprende.org, Cisco NetAcad), normaliza la información conforme a estándares ontológicos internacionales (**Schema.org** `schema:Course` y espejo **Dublin Core** `dcterms:*`) y genera salidas listas para orquestación en **n8n** e importación en la API REST de **Omeka S v4+** (`cursodex.com/omekas/`).
 
 ---
 
-## Expected Output & Verification
+## Documentación Maestra del Proyecto
 
-The scraper outputs a flat CSV file (`results.csv` by default) mapped to the [Schema.org Course specification](https://schema.org/Course).
+Para una comprensión profunda de las especificaciones, ontologías y hoja de ruta:
 
-### Output File Structure
-Your CSV will contain columns like:
-*   `schema:name`: The course title.
-*   `schema:description`: The course description (truncated/normalized).
-*   `schema:url`: The direct link to the course.
-*   `schema:provider`: The organization offering the course.
-*   `schema:price` / `schema:priceCurrency`: Flattened from the `Offer` object.
-*   `schema:keywords`: Extracted tags, joined into a comma-separated string (e.g., `"python, coding, web"`).
+* [ARCHITECTURE.md](ARCHITECTURE.md): Arquitectura del sistema, especificación del modelo `Course`, contratos JSON-LD para Omeka S v4+, mapeo CINE-F 2013 / DigComp 2.2 y reglas anti-falsos gratis.
+* [PLAN.md](PLAN.md): Hoja de ruta maestra end-to-end, estado actual post-Paso 3, especificación del Paso 4 (proveedores v1) e hitos hacia producción en VPS.
+* [AGENTS.md](AGENTS.md): Reglas inquebrantables y guardrails permanentes para agentes de IA en VS Code.
 
-### How to Verify the Scraper Works
-1. Run a targeted scrape using one of the examples above (e.g., the `aprende.org` example).
-2. Open the resulting `.csv` file in Excel, Numbers, or via the terminal (`cat aprende.csv`).
-3. Verify that the header row contains the exact `schema:` aliases.
-4. Verify that the list fields (like keywords) are properly comma-separated and that nested objects (like price) are properly flattened into their respective columns.
-5. You can now take this CSV and import it directly into **Omeka S** using the CSV Import module!
+---
+
+## Requisitos del Sistema
+
+* **Python 3.11 o superior** (probado y validado en Python 3.11 y 3.14).
+* **[uv](https://docs.astral.sh/uv/)** como gestor de paquetes y entornos virtuales (*prohibido el uso directo de `pip`, `conda` o `poetry`*).
+* Sistema operativo compatible: Linux, macOS o Windows (PowerShell).
+
+---
+
+## Instalación Rápida y Reproducible
+
+Clona el repositorio e instala el entorno congelado con `uv`:
+
+```bash
+# 1. Clonar el repositorio
+git clone https://github.com/eddiebardad/cursos.git
+cd cursos
+
+# 2. Sincronizar el entorno virtual exacto (uv.lock congelado)
+uv sync --frozen --link-mode=copy
+
+# 3. Instalar binarios de Playwright Chromium (requerido para proveedores dinámicos)
+uv run playwright install chromium
+```
+
+---
+
+## Uso de la Herramienta CLI
+
+El extractor cumple con la filosofía de herramientas Unix: emite datos limpios por `stdout` (para tuberías) y redirige todos los logs, advertencias y resúmenes estructurados a `stderr`.
+
+### 1. Extracción con Tubería a `stdout` (Formato JSON-LD por defecto)
+Ideal para integración directa con `n8n` o redirección a herramientas como `jq`:
+```bash
+# Extraer hasta 5 cursos de Microsoft Learn directamente a stdout
+uv run cursodex run --provider mslearn --limit 5 --output -
+```
+
+### 2. Exportación hacia Archivo JSON-LD (Omeka S REST API v4+)
+Genera un archivo JSON-LD con `"property_id": "auto"`, `"o:is_public": false` y metadatos privados `_cursodex_meta`:
+```bash
+uv run cursodex run --provider hubspot --limit 20 --output resultados.jsonld
+```
+
+### 3. Exportación hacia Archivo CSV (Omeka S Bulk Import)
+Genera un archivo CSV en codificación UTF-8 sin BOM, con cabeceras `schema:*` y `dcterms:*`, y separador de listas `;`:
+```bash
+uv run cursodex run --provider aprende --output cursos_aprende.csv --format csv
+```
+
+### 4. Extracción por URL Específica
+El CLI detecta automáticamente el proveedor correspondiente según el dominio:
+```bash
+uv run cursodex run --url "https://aprende.org/cursos/view/123" --output -
+```
+
+### 5. Opciones Disponibles en el CLI
+```text
+Opciones:
+  -u, --url TEXT           URL inicial para extraer o rastrear.
+  -p, --provider TEXT      Forzar un adaptador registrado por nombre (mslearn, hubspot, aprende, netacad).
+  -o, --output TEXT        Ruta de salida o '-' para stdout estructurado [default: results.csv].
+  -f, --format TEXT        Formato explícito ('jsonld' o 'csv').
+  -l, --limit INTEGER      Límite máximo de cursos a extraer (0 = sin límite) [default: 0].
+  --render                 Habilitar Playwright Chromium para renderizar SPAs / JavaScript.
+  --enable-bfs             Habilitar rastreo genérico BFS cuando una URL no tiene adaptador.
+  --enable-modules         Extraer micro-módulos atómicos en proveedores que lo admitan (ej. MS Learn).
+  --max-pages INTEGER      Límite de páginas a spider en modo BFS [default: 100].
+  --help                   Muestra el menú de ayuda y sale limpiamente.
+```
+
+---
+
+## Códigos de Salida Semánticos
+
+El CLI garantiza códigos de retorno estandarizados para control en orquestadores (`n8n`, scripts Bash):
+
+| Código | Significado | Comportamiento |
+| :---: | :--- | :--- |
+| **`0`** | **Éxito** | $\ge 1$ cursos extraídos y exportados con éxito. |
+| **`2`** | **Alerta Temprana** | 0 cursos extraídos sin fallo de red (posible cambio en estructura del proveedor). Emite estructura vacía `[]`. |
+| **`1`** | **Fallo Técnico** | Excepción, fallo de red, URL sin adaptador sin `--enable-bfs` o sintaxis CLI errónea. |
+
+---
+
+## Estructura del Proyecto
+
+```text
+cursos/
+├── ARCHITECTURE.md          # Especificación formal de arquitectura y contratos semánticos
+├── PLAN.md                  # Hoja de ruta técnica maestra (Paso 4 e Hitos 1 a 5)
+├── AGENTS.md                # Directrices y guardrails para agentes en VS Code
+├── pyproject.toml           # Dependencias fijadas y configuración de herramientas uv/ruff/mypy
+├── uv.lock                  # Lockfile determinista y reproducible
+├── cli.py                   # Punto de entrada Typer/Click con contrato Unix y exit codes
+├── config.py                # Configuración global (timeouts, User-Agent, cortesía)
+├── core/
+│   ├── crawler.py           # Cliente HTTP httpx con pausas de cortesía y Playwright
+│   ├── parser.py            # Parser fallback DOM y utilidades HTML
+│   └── exceptions.py        # Excepciones técnicas del dominio
+├── exporters/
+│   ├── base.py              # Clase base abstracta de exportadores
+│   ├── jsonld_exporter.py   # Exportador JSON-LD compatible con Omeka S v4+ y OAI-PMH
+│   └── csv_exporter.py      # Exportador CSV UTF-8 sin BOM con separador ';'
+├── mappings/
+│   └── vocab_map.yml        # Vocabulario controlado CINE-F 2013 + DigComp 2.2
+├── providers/
+│   ├── base.py              # Clase base ProviderBase con registro automático
+│   ├── ms_learn.py          # Adaptador API Microsoft Learn (en desarrollo Paso 4)
+│   ├── hubspot.py           # Adaptador HubSpot Academy
+│   ├── aprende.py           # Adaptador API Aprende.org (Fundación Carlos Slim)
+│   └── netacad.py           # Adaptador Cisco Networking Academy
+├── schemas/
+│   └── models.py            # Modelo Pydantic v2 Course, validaciones, content_hash SHA-256
+├── tests/
+│   ├── test_models.py       # Pruebas unitarias de modelos, canonización, hashes e imágenes
+│   └── test_exporters_and_cli.py # Pruebas de exportadores y subprocesos reales del SO
+└── utils/
+    └── logger.py            # Logger idempotente configurado 100% a stderr y run_summary
+```
+
+---
+
+## Verificación de Calidad y Pruebas
+
+Para validar el funcionamiento del proyecto antes de commitear:
+
+```bash
+# Ejecutar suite de pruebas unitarias y de integración
+uv run pytest -v
+
+# Ejecutar linter y formateador
+uv run ruff check .
+
+# Ejecutar comprobador estático de tipos
+uv run mypy cli.py config.py schemas/ exporters/ utils/ core/ providers/
+```
+
+---
+
+## Licencia
+
+Distribuido bajo la licencia **MIT**. Consulta `LICENSE` para más información.

@@ -64,6 +64,39 @@ def get_vocab_map() -> dict[str, Any]:
 # ==============================================================================
 # Helpers de normalización de texto y matching con límites de palabra
 # ==============================================================================
+def clean_text_field(text: str | None) -> str | None:
+    """
+    Limpia entidades HTML, retira etiquetas HTML y colapsa espacios en blanco.
+    Devuelve None si el resultado está vacío.
+    """
+    if not text or not str(text).strip():
+        return None
+    t = html.unescape(str(text))
+    t = re.sub(r"<[^>]+>", " ", t)
+    t = re.sub(r"\s+", " ", t).strip()
+    return t if t else None
+
+
+def clean_and_dedup_list(items: list[str] | None) -> list[str] | None:
+    """
+    Limpia cada elemento de una lista de texto, retira duplicados respetando
+    el orden (comparación case-insensitive) y omite vacíos.
+    """
+    if not items:
+        return None
+    seen_lower: set[str] = set()
+    deduped: list[str] = []
+    for raw in items:
+        cleaned = clean_text_field(raw)
+        if not cleaned:
+            continue
+        lower_key = cleaned.lower()
+        if lower_key not in seen_lower:
+            seen_lower.add(lower_key)
+            deduped.append(cleaned)
+    return deduped if deduped else None
+
+
 def normalize_text_for_matching(text: str) -> str:
     """Convierte a minúsculas y retira acentos/diacríticos."""
     nfkd = unicodedata.normalize("NFKD", text.lower())
@@ -202,9 +235,15 @@ def canonicalize_url(raw_url: str) -> str:
         raise ValueError("La URL no puede estar vacía.")
 
     parsed = urllib.parse.urlsplit(raw_url.strip())
-    netloc = parsed.netloc.lower()
-    if not netloc:
+    hostname = parsed.hostname
+    if not hostname:
         raise ValueError(f"URL inválida sin dominio: '{raw_url}'")
+
+    port = parsed.port
+    if port and port not in (80, 443):
+        netloc = f"{hostname}:{port}"
+    else:
+        netloc = hostname
 
     path = parsed.path
     if not path or path.strip("/") == "":
@@ -259,6 +298,8 @@ def parse_and_normalize_duration(val: Any) -> tuple[str | None, bool]:
         return None, True
 
     if isinstance(val, (int, float)):
+        if val < 0:
+            return None, False
         return format_iso_duration_minutes(int(val)), True
 
     val_str = str(val).strip()
@@ -270,11 +311,18 @@ def parse_and_normalize_duration(val: Any) -> tuple[str | None, bool]:
 
     clean = val_str.lower().replace(",", ".")
 
+    if "-" in clean:
+        return None, False
+
     m_weeks = re.search(r"(\d+)\s*(?:semanas?|weeks?|sem|w)\b", clean)
+    m_days = re.search(r"(\d+(?:\.\d+)?)\s*(?:d[ií]as?|days?|d)\b", clean)
     m_hours = re.search(r"(\d+(?:\.\d+)?)\s*(?:horas?|hours?|hrs?|h)\b", clean)
     m_mins = re.search(r"(\d+)\s*(?:minutos?|minutes?|mins?|m)\b", clean)
 
-    if m_weeks and not (m_hours or m_mins):
+    if m_days and not (m_hours or m_mins or m_weeks):
+        return f"P{int(float(m_days.group(1)))}D", True
+
+    if m_weeks and not (m_days or m_hours or m_mins):
         return f"P{int(m_weeks.group(1))}W", True
 
     if m_hours and m_mins:
@@ -355,13 +403,13 @@ def compute_course_content_hash(
     """
     payload = {
         "access_type": access_type.value if access_type else "",
-        "authors": sorted(authors) if authors else [],
+        "authors": sorted(authors, key=str.lower) if authors else [],
         "category": category or "",
-        "course_prerequisites": sorted(course_prerequisites) if course_prerequisites else [],
+        "course_prerequisites": sorted(course_prerequisites, key=str.lower) if course_prerequisites else [],
         "description": description or "",
         "educational_level": educational_level or "",
         "in_language": in_language or "",
-        "keywords": sorted(keywords) if keywords else [],
+        "keywords": sorted(keywords, key=str.lower) if keywords else [],
         "name": name.strip() if name else "",
         "provider": provider.strip() if provider else "",
         "time_required": time_required or "",
@@ -432,33 +480,58 @@ class Course(BaseModel):
                 "Descartado por la regla anti-pago de Cursodex."
             )
 
-        # 2. Canonización de URL y anti-redirección de portada
+        # 2. Sanitización de textos y listas (HTML unescape, etiquetas, espacios)
+        clean_name = clean_text_field(self.name)
+        if not clean_name:
+            raise ValueError("El nombre del curso no puede estar vacío.")
+
+        clean_provider = clean_text_field(self.provider)
+        clean_authors = clean_and_dedup_list(self.authors)
+        clean_keywords = clean_and_dedup_list(self.keywords)
+        clean_prereqs = clean_and_dedup_list(self.course_prerequisites)
+
+        # 3. Canonización de URL y anti-redirección de portada
         raw_to_clean = self.url or self.canonical_url
         clean_url = canonicalize_url(raw_to_clean)
 
-        # 3. Limpieza y acotado factual de descripción
+        # 4. Limpieza y validación de imagen
+        clean_img: str | None = None
+        if self.image and str(self.image).strip():
+            resolved_img = urllib.parse.urljoin(clean_url, str(self.image).strip())
+            parsed_img = urllib.parse.urlsplit(resolved_img)
+            if parsed_img.scheme in ("http", "https") and parsed_img.netloc:
+                clean_img = resolved_img
+
+        # 5. Normalización de fecha UTC
+        dt = self.last_seen_at
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        else:
+            dt = dt.astimezone(UTC)
+
+        # 6. Limpieza y acotado factual de descripción
         clean_desc = self.description
         if clean_desc:
             clean_desc = clean_and_truncate_description(clean_desc)
 
-        # 4. Normalización de categoría (mappings/vocab_map.yml)
+        # 7. Normalización de categoría (mappings/vocab_map.yml)
         clean_cat = resolve_category(
             category_hint=self.category,
-            keywords=self.keywords,
-            title=self.name,
+            keywords=clean_keywords,
+            title=clean_name,
         )
 
-        # 5. Normalización de nivel educativo
+        # 8. Normalización de nivel educativo
         clean_level = self.educational_level
         if clean_level:
             clean_level = resolve_educational_level(clean_level)
 
-        # 6. Normalización de idioma
+        # 9. Normalización de idioma
         clean_lang = self.in_language
         if clean_lang:
             clean_lang = resolve_language(clean_lang)
 
-        # 7. Normalización de duración a ISO 8601
+        # 10. Normalización de duración a ISO 8601
         notes = list(self.review_notes)
         clean_dur = self.time_required
         if clean_dur is not None:
@@ -469,7 +542,7 @@ class Course(BaseModel):
                 notes.append(f"Duración no interpretable como ISO 8601: '{clean_dur}'")
                 clean_dur = None
 
-        # 8. Triaje de calidad automático (needs_review)
+        # 11. Triaje de calidad automático (needs_review)
         if not clean_desc or len(clean_desc) < 30:
             notes.append("Descripción ausente o demasiado corta (< 30 caracteres)")
 
@@ -485,23 +558,30 @@ class Course(BaseModel):
             if n not in dedup_notes:
                 dedup_notes.append(n)
 
-        # 9. Cálculo del hash determinista de contenido
+        # 12. Cálculo del hash determinista de contenido
         calc_hash = compute_course_content_hash(
-            name=self.name,
-            provider=self.provider,
-            authors=self.authors,
+            name=clean_name,
+            provider=clean_provider,
+            authors=clean_authors,
             category=clean_cat,
-            keywords=self.keywords,
+            keywords=clean_keywords,
             access_type=self.access_type,
             educational_level=clean_level,
             time_required=clean_dur,
             in_language=clean_lang,
             description=clean_desc,
-            course_prerequisites=self.course_prerequisites,
+            course_prerequisites=clean_prereqs,
         )
 
         # Asignar campos normalizados directamente
+        object.__setattr__(self, "name", clean_name)
+        object.__setattr__(self, "provider", clean_provider)
+        object.__setattr__(self, "authors", clean_authors)
+        object.__setattr__(self, "keywords", clean_keywords)
+        object.__setattr__(self, "course_prerequisites", clean_prereqs)
         object.__setattr__(self, "canonical_url", clean_url)
+        object.__setattr__(self, "image", clean_img)
+        object.__setattr__(self, "last_seen_at", dt)
         object.__setattr__(self, "description", clean_desc)
         object.__setattr__(self, "category", clean_cat)
         object.__setattr__(self, "educational_level", clean_level)

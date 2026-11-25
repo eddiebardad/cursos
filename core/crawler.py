@@ -7,7 +7,7 @@ Cliente de rastreo HTTP y navegación con soporte para pausas de cortesía.
 
 import collections
 import time
-from typing import Iterator
+from collections.abc import Iterator
 
 import httpx
 
@@ -19,14 +19,32 @@ logger = get_logger(__name__)
 
 
 class Crawler:
-    def __init__(self):
+    def __init__(self) -> None:
         self.headers = {"User-Agent": config.USER_AGENT}
         self.timeout = config.HTTP_TIMEOUT
         self.delay = config.COURTESY_DELAY
+        self._last_request_time: float = 0.0
+        self._client: httpx.Client | None = None
+
+    def __enter__(self) -> "Crawler":
+        self._client = httpx.Client(
+            headers=self.headers,
+            timeout=self.timeout,
+            follow_redirects=config.FOLLOW_REDIRECTS,
+        )
+        return self
+
+    def __exit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
+        if self._client:
+            self._client.close()
+            self._client = None
 
     def get(self, url: str, render: bool = False, headers: dict | None = None, **kwargs) -> str:
-        if self.delay > 0:
-            time.sleep(self.delay)
+        if self._last_request_time > 0 and self.delay > 0:
+            elapsed = time.time() - self._last_request_time
+            if elapsed < self.delay:
+                time.sleep(self.delay - elapsed)
+        self._last_request_time = time.time()
 
         if render:
             try:
@@ -49,6 +67,11 @@ class Crawler:
         merged_headers = {**self.headers, **(headers or {})}
 
         try:
+            if self._client:
+                response = self._client.get(url, headers=headers, **kwargs)
+                response.raise_for_status()
+                return response.text
+
             with httpx.Client(
                 headers=merged_headers,
                 timeout=self.timeout,

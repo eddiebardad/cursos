@@ -1,8 +1,10 @@
-from typing import Iterator, Optional
 import urllib.parse
-from .base import ProviderBase
+from collections.abc import Iterator
+
 from schemas.models import Course
 from utils.logger import get_logger
+
+from .base import ProviderBase
 
 logger = get_logger(__name__)
 
@@ -72,7 +74,7 @@ class AprendeProvider(ProviderBase):
     # Private helpers
     # ------------------------------------------------------------------
 
-    def _fetch_detail(self, course_id: int) -> Optional[dict]:
+    def _fetch_detail(self, course_id: int) -> dict | None:
         """Fetch the per-course detail endpoint (optional enrichment)."""
         try:
             raw = self.crawler.get(
@@ -93,7 +95,7 @@ class AprendeProvider(ProviderBase):
         json_lds = Parser.extract_json_ld(soup)
         return json_lds[0] if json_lds else {}
 
-    def _map_to_course(self, item: dict) -> Optional[Course]:
+    def _map_to_course(self, item: dict) -> Course | None:
         """Map a raw API response dict to the standard Course Pydantic model."""
         import html as html_module
         import re
@@ -117,11 +119,15 @@ class AprendeProvider(ProviderBase):
 
         # Difficulty → educationalLevel
         difficulty_map = {1: "Beginner", 2: "Intermediate", 3: "Advanced"}
-        edu_level = difficulty_map.get(item.get("difficultyId")) or str(item.get("difficultyId")) if item.get("difficultyId") else None
+        raw_diff = item.get("difficultyId")
+        edu_level = difficulty_map.get(int(raw_diff)) if raw_diff is not None and str(raw_diff).isdigit() else (str(raw_diff) if raw_diff else None)
 
         # Sector → categories
         sector = item.get("sector")
         category = sector.get("name") if isinstance(sector, dict) else None
+
+        if not permalink:
+            return None
 
         try:
             return Course(
@@ -130,15 +136,11 @@ class AprendeProvider(ProviderBase):
                 url=permalink,
                 image=item.get("imageUrl"),
                 provider=self.provider_name,
-                inLanguage="es",
-                isAccessibleForFree=True,
-                price=0.0,
-                priceCurrency="USD",
-                offerUrl=permalink,
-                educationalLevel=edu_level,
+                in_language="es",
+                is_accessible_for_free=True,
+                educational_level=edu_level,
                 keywords=tags if tags else None,
-                about=category,
-                # dcterms:identifier from the API id
+                category=category,
             )
         except Exception as e:
             logger.warning(f"Could not create Course for id={course_id}: {e}")

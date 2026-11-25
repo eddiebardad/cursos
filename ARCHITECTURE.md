@@ -216,6 +216,7 @@ En la API REST de Omeka S v4+:
 - URLs y URIs: `{"type": "uri", "property_id": "auto", "@id": "..."}`.
 - Propiedades privadas de auditoría: se almacena el hash y la fecha con `"is_public": false`.
 - **NO incluir `"o:id"`** dentro de `"@type"` ni `"o:resource_class"`.
+- **Regla anti-polución de categorías:** Si `category == "Pendiente_Categoria"`, **se omiten** las propiedades públicas `schema:about` y `dcterms:subject` en el grafo RDF público (evitando ensuciar las facetas de Omeka S y OAI-PMH). El valor se conserva íntegramente en el bloque privado `_cursodex_meta["category"]` y en `review_notes`.
 
 ```json
 [
@@ -298,6 +299,7 @@ En la API REST de Omeka S v4+:
     "_cursodex_meta": {
       "canonical_url": "https://proveedor.com/cursos/python",
       "content_hash": "a3f4b2c1...",
+      "category": "Programación y Desarrollo de Software",
       "access_type": "free_with_certificate",
       "last_seen_at": "2026-11-24T00:00:00Z",
       "needs_review": false,
@@ -311,7 +313,8 @@ En la API REST de Omeka S v4+:
 
 - Codificación: `utf-8` estándar sin BOM (el BOM rompe tuberías stdout y corrompe la primera columna en `fgetcsv`).
 - Separador de columnas: `,` (coma).
-- Separador de valores múltiples dentro de celdas: `;` (punto y coma).
+- Separador de valores múltiples dentro de celdas: `;` (punto y coma). Los puntos y comas internos dentro de los elementos se sustituyen por comas antes de concatenar.
+- Si `category == "Pendiente_Categoria"`, las celdas `schema:about` y `dcterms:subject` se dejan vacías.
 - Cabeceras directas en formato `namespace:property`:
 
 ```

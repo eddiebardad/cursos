@@ -345,3 +345,149 @@ def test_category_specificity_ordering():
         in_language="es",
     )
     assert c_tic.category == "Tecnologías de la Información y la Comunicación (General)"
+
+
+# ==============================================================================
+# 10. Pruebas de Idempotencia, Puertos, Sanitización, Días e Imágenes
+# ==============================================================================
+def test_course_model_validate_idempotence():
+    c1 = Course(
+        name="Programación en Python",
+        url="https://ejemplo.com/cursos/python-intro",
+        provider="Universidad Virtual",
+        authors=["Dra. Elena Gómez", "Ing. Carlos Ruiz"],
+        description="Curso intensivo con diseño de arquitecturas escalables y pruebas unitarias.",
+        in_language="es",
+        category="Programación y Desarrollo de Software",
+        keywords=["Python", "FastAPI"],
+        access_type=AccessType.free_with_certificate,
+        educational_level="Avanzado",
+        time_required="PT20H",
+    )
+    dumped = c1.model_dump()
+    c2 = Course.model_validate(dumped)
+
+    assert c1.content_hash == c2.content_hash
+    assert c1.canonical_url == c2.canonical_url
+    assert c1.category == c2.category
+    assert c1.needs_review == c2.needs_review
+    assert c1.last_seen_at == c2.last_seen_at
+
+
+def test_canonical_url_strips_ports_80_and_443():
+    assert canonicalize_url("http://example.com:80/courses/intro") == "https://example.com/courses/intro"
+    assert canonicalize_url("https://example.com:443/courses/intro") == "https://example.com/courses/intro"
+    # Puerto no estándar se conserva
+    assert canonicalize_url("https://example.com:8080/courses/intro") == "https://example.com:8080/courses/intro"
+
+
+def test_image_resolution_and_validation():
+    # Imagen relativa resuelta contra canonical_url
+    c_rel = Course(
+        name="Curso con imagen relativa",
+        url="https://ejemplo.com/courses/intro",
+        description="Curso con imagen en ruta relativa local.",
+        in_language="es",
+        image="assets/banner.png",
+    )
+    assert c_rel.image == "https://ejemplo.com/courses/assets/banner.png"
+
+    # Imagen absoluta válida
+    c_abs = Course(
+        name="Curso con imagen absoluta",
+        url="https://ejemplo.com/courses/intro",
+        description="Curso con imagen alojada en CDN externo.",
+        in_language="es",
+        image="https://cdn.ejemplo.com/img.jpg",
+    )
+    assert c_abs.image == "https://cdn.ejemplo.com/img.jpg"
+
+    # Esquema no http(s) o inválido descartado a None
+    c_inv = Course(
+        name="Curso con imagen inválida",
+        url="https://ejemplo.com/courses/intro",
+        description="Curso con esquema peligroso o no parseable.",
+        in_language="es",
+        image="javascript:alert(1)",
+    )
+    assert c_inv.image is None
+
+
+def test_duration_days_and_negative_rejection():
+    # Días en texto en español e inglés
+    iso, valid = parse_and_normalize_duration("3 días")
+    assert valid and iso == "P3D"
+
+    iso, valid = parse_and_normalize_duration("5 days")
+    assert valid and iso == "P5D"
+
+    iso, valid = parse_and_normalize_duration("1 dia")
+    assert valid and iso == "P1D"
+
+    # Duraciones negativas rechazadas
+    iso, valid = parse_and_normalize_duration(-10)
+    assert not valid and iso is None
+
+    iso, valid = parse_and_normalize_duration("-2 horas")
+    assert not valid and iso is None
+
+    iso, valid = parse_and_normalize_duration("-PT5H")
+    assert not valid and iso is None
+
+
+def test_utc_normalization_naive_and_aware():
+    from datetime import timedelta, timezone
+
+    # Naive datetime
+    naive_dt = datetime(2026, 11, 24, 12, 0, 0)
+    c_naive = Course(
+        name="Curso con fecha naive",
+        url="https://ejemplo.com/courses/dt-naive",
+        description="Verificación de asignación de timezone UTC.",
+        in_language="es",
+        last_seen_at=naive_dt,
+    )
+    assert c_naive.last_seen_at.tzinfo == UTC
+    assert c_naive.last_seen_at.hour == 12
+
+    # Aware datetime en UTC+2
+    tz_plus_2 = timezone(timedelta(hours=2))
+    aware_dt = datetime(2026, 11, 24, 14, 0, 0, tzinfo=tz_plus_2)
+    c_aware = Course(
+        name="Curso con fecha aware",
+        url="https://ejemplo.com/courses/dt-aware",
+        description="Verificación de conversión a timezone UTC.",
+        in_language="es",
+        last_seen_at=aware_dt,
+    )
+    assert c_aware.last_seen_at.tzinfo == UTC
+    assert c_aware.last_seen_at.hour == 12
+
+
+def test_text_sanitization_and_deduplication():
+    # Nombre con HTML y espacios colapsados
+    c = Course(
+        name="  <h1>Aprende &amp; Domina Python</h1>  ",
+        url="https://ejemplo.com/courses/sanitization",
+        description="Descripción válida para comprobar la sanitización de campos.",
+        in_language="es",
+        provider="  <b>Fundación Código</b>  ",
+        authors=["Jane Doe", "jane doe", "  Jane Doe  ", "John Smith"],
+        keywords=["Python", "python", "PYTHON", "FastAPI"],
+        course_prerequisites=["Bases de Datos", "bases de datos", "SQL"],
+    )
+    assert c.name == "Aprende & Domina Python"
+    assert c.provider == "Fundación Código"
+    assert c.authors == ["Jane Doe", "John Smith"]
+    assert c.keywords == ["Python", "FastAPI"]
+    assert c.course_prerequisites == ["Bases de Datos", "SQL"]
+
+    # Nombre vacío tras sanitización debe lanzar ValueError
+    with pytest.raises(ValidationError) as exc:
+        Course(
+            name="   <b>   </b>  ",
+            url="https://ejemplo.com/courses/empty-name",
+            description="Descripción de prueba.",
+            in_language="es",
+        )
+    assert "El nombre del curso no puede estar vacío" in str(exc.value)

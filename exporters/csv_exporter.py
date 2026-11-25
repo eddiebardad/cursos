@@ -49,12 +49,21 @@ CSV_HEADERS: list[str] = [
 ]
 
 
+def _join_list(items: list[str] | None) -> str:
+    """Escapa puntos y comas internos sustituyéndolos por comas antes de unir con ';'."""
+    if not items:
+        return ""
+    clean_items = [item.replace(";", ",") for item in items]
+    return ";".join(clean_items)
+
+
 def course_to_csv_row(course: Course) -> dict[str, Any]:
     """Convierte una instancia de Course a un dict de fila CSV con cabeceras canónicas."""
-    authors_str = ";".join(course.authors) if course.authors else ""
-    keywords_str = ";".join(course.keywords) if course.keywords else ""
-    prereqs_str = ";".join(course.course_prerequisites) if course.course_prerequisites else ""
-    review_notes_str = ";".join(course.review_notes) if course.review_notes else ""
+    authors_str = _join_list(course.authors)
+    keywords_str = _join_list(course.keywords)
+    prereqs_str = _join_list(course.course_prerequisites)
+    review_notes_str = _join_list(course.review_notes)
+    cat_str = course.category if course.category and course.category != "Pendiente_Categoria" else ""
 
     return {
         "dcterms:title": course.name,
@@ -63,13 +72,13 @@ def course_to_csv_row(course: Course) -> dict[str, Any]:
         "dcterms:creator": authors_str,
         "dcterms:description": course.description or "",
         "dcterms:language": course.in_language or "",
-        "dcterms:subject": course.category or "",
+        "dcterms:subject": cat_str,
         "schema:name": course.name,
         "schema:url": course.canonical_url,
         "schema:description": course.description or "",
         "schema:provider": course.provider or "",
         "schema:author": authors_str,
-        "schema:about": course.category or "",
+        "schema:about": cat_str,
         "schema:keywords": keywords_str,
         "schema:timeRequired": course.time_required or "",
         "schema:educationalLevel": course.educational_level or "",

@@ -269,3 +269,135 @@ def test_cli_no_args_exits_code_1():
     result = runner.invoke(app, ["run"])
     assert result.exit_code == 1
     assert "Debe especificar al menos una URL" in result.stderr
+
+
+# ==============================================================================
+# 4. Pruebas de Omisión de Pendiente_Categoria y Escapado en CSV
+# ==============================================================================
+def test_omission_of_pendiente_categoria_in_public_rdf_and_csv():
+    c_unmapped = Course(
+        name="Curso Esotérico Sin Categoría Mapeable",
+        url="https://ejemplo.com/cursos/esoterico",
+        description="Contenido que no coincide con ninguna regla del vocabulario controlado.",
+        in_language="es",
+    )
+    assert c_unmapped.category == "Pendiente_Categoria"
+
+    # 1. En JSON-LD
+    exporter_ld = JSONLDExporter()
+    buffer_ld = io.StringIO()
+    import sys
+    old_stdout = sys.stdout
+    sys.stdout = buffer_ld
+    try:
+        exporter_ld.export([c_unmapped], "-")
+    finally:
+        sys.stdout = old_stdout
+
+    data_ld = json.loads(buffer_ld.getvalue())[0]
+    assert "schema:about" not in data_ld
+    assert "dcterms:subject" not in data_ld
+    # Pero sí debe conservarse en los metadatos privados para n8n
+    assert data_ld["_cursodex_meta"]["category"] == "Pendiente_Categoria"
+
+    # 2. En CSV
+    exporter_csv = CSVExporter()
+    buffer_csv = io.StringIO()
+    sys.stdout = buffer_csv
+    try:
+        exporter_csv.export([c_unmapped], "-")
+    finally:
+        sys.stdout = old_stdout
+
+    import csv
+    reader = csv.DictReader(io.StringIO(buffer_csv.getvalue()))
+    row = next(reader)
+    assert row["schema:about"] == ""
+    assert row["dcterms:subject"] == ""
+
+
+def test_csv_semicolon_escaping_in_lists():
+    c = Course(
+        name="Curso con punto y coma en keywords",
+        url="https://ejemplo.com/cursos/keywords-semicolon",
+        description="Descripción adecuada para comprobar la sustitución de punto y coma.",
+        in_language="es",
+        keywords=["SQL; Bases de Datos", "Python"],
+        authors=["Doe; Jane", "Smith, John"],
+    )
+    exporter_csv = CSVExporter()
+    buffer_csv = io.StringIO()
+    import sys
+    old_stdout = sys.stdout
+    sys.stdout = buffer_csv
+    try:
+        exporter_csv.export([c], "-")
+    finally:
+        sys.stdout = old_stdout
+
+    import csv
+    reader = csv.DictReader(io.StringIO(buffer_csv.getvalue()))
+    row = next(reader)
+    # Los puntos y comas internos deben haber sido convertidos a comas
+    assert row["schema:keywords"] == "SQL, Bases de Datos;Python"
+    assert row["schema:author"] == "Doe, Jane;Smith, John"
+
+
+# ==============================================================================
+# 5. Pruebas Reales de Subproceso en Sistema Operativo (Contrato Unix)
+# ==============================================================================
+def test_cli_subprocess_invalid_limit():
+    import subprocess
+    import sys
+
+    res = subprocess.run(
+        [sys.executable, "cli.py", "--limit", "invalido", "--output", "-"],
+        capture_output=True,
+        text=True,
+    )
+    assert res.returncode == 1
+    assert res.stdout == ""
+    assert "exit_code" in res.stderr
+    assert "\x1b[" not in res.stderr  # Cero secuencias ANSI de Rich
+
+
+def test_cli_subprocess_unknown_flag():
+    import subprocess
+    import sys
+
+    res = subprocess.run(
+        [sys.executable, "cli.py", "--flag-inexistente"],
+        capture_output=True,
+        text=True,
+    )
+    assert res.returncode == 1
+    assert res.stdout == ""
+    assert "exit_code" in res.stderr
+
+
+def test_cli_subprocess_no_args():
+    import subprocess
+    import sys
+
+    res = subprocess.run(
+        [sys.executable, "cli.py"],
+        capture_output=True,
+        text=True,
+    )
+    assert res.returncode == 1
+    assert res.stdout == ""  # Exactamente 0 bytes en stdout
+    assert "Debe especificar al menos una URL" in res.stderr
+    assert "exit_code" in res.stderr
+
+
+def test_cli_subprocess_help():
+    import subprocess
+    import sys
+
+    res = subprocess.run(
+        [sys.executable, "cli.py", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert res.returncode == 0
+    assert "Cursodex" in res.stdout

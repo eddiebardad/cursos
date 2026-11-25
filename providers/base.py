@@ -6,8 +6,11 @@ Incluye registro automático de subclases y atributos de contrato.
 ==============================================================================
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import ClassVar, Iterator
+from collections.abc import Iterator
+from typing import ClassVar
 
 from core.crawler import Crawler
 from core.parser import Parser

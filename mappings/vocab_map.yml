@@ -95,6 +95,10 @@ categories:
       - "administracion de sistemas"
       - "linux"
       - "administracion de redes"
+      - "iot"
+      - "internet de las cosas"
+      - "cisco packet tracer"
+      - "packet tracer"
 
   - canonical: "Programación y Desarrollo de Software"
     cinef_code: "0613 / DigComp 2.2"
@@ -207,6 +211,8 @@ categories:
       - "herramientas colaborativas"
       - "zoom"
       - "teams"
+      - "power platform"
+      - "power apps"
 
   # ----------------------------------------------------------------------------
   # 2. Categoría General TIC (CINE-F 061) — Fallback si no encaja en subramas
@@ -263,6 +269,9 @@ categories:
       - "pmp"
       - "scrum"
       - "agile"
+      - "ventas"
+      - "atencion al cliente"
+      - "customer service"
 
   - canonical: "Ingeniería, Industria y Construcción"
     cinef_code: "07"

@@ -1,6 +1,8 @@
+from exporters.csv_exporter import CSVExporter
+
 from .crawler import crawl_site
 from .parser import parse_course_page
-from exporters.csv_exporter import CSVExporter
+
 
 def write_csv(records, output_path):
     exporter = CSVExporter()

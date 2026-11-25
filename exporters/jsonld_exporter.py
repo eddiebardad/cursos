@@ -69,7 +69,7 @@ def course_to_omeka_jsonld(course: Course) -> dict[str, Any]:
         for author in course.authors:
             add_literal("schema:author", author)
 
-    if course.category:
+    if course.category and course.category != "Pendiente_Categoria":
         add_literal("schema:about", course.category)
 
     if course.keywords:
@@ -127,13 +127,14 @@ def course_to_omeka_jsonld(course: Course) -> dict[str, Any]:
     if course.in_language:
         add_literal("dcterms:language", course.in_language)
 
-    if course.category:
+    if course.category and course.category != "Pendiente_Categoria":
         add_literal("dcterms:subject", course.category)
 
     # 4. Bloque de metadatos privados _cursodex_meta para n8n
     item["_cursodex_meta"] = {
         "canonical_url": course.canonical_url,
         "content_hash": course.content_hash,
+        "category": course.category,
         "access_type": course.access_type.value,
         "last_seen_at": course.last_seen_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "needs_review": course.needs_review,
