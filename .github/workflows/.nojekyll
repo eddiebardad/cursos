@@ -1,0 +1,7 @@
+Get-ChildItem .github/workflows/
+# Sustituye static.yml por el nombre real del archivo que viste arriba (ej. static.yml o pages.yml)
+git rm .github/workflows/static.yml
+New-Item -ItemType File -Path docs/.nojekyll -Force
+git add docs/.nojekyll
+git commit -m "chore: servir docs/ directo en GitHub Pages y retirar workflow obsoleto"
+git push origin main
