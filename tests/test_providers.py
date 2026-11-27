@@ -223,6 +223,50 @@ def test_ms_learn_prioritizes_cloud_products_over_generic_roles() -> None:
     assert course.category == "Redes, Cloud y Ciberseguridad"
 
 
+def test_ms_learn_uses_most_specific_windows_content_signal() -> None:
+    category = MicrosoftLearnProvider._category_for_signals(
+        subjects=[],
+        products=["m365 business", "microsoft 365 copilot", "intune"],
+        roles=["administrator", "business owner", "technology manager"],
+        title="Windows 11 Pro Acreditación 2026",
+    )
+
+    assert category == "Tecnologías de la Información y la Comunicación (General)"
+
+
+def test_ms_learn_cloud_observability_content_overrides_data_analytics() -> None:
+    category = MicrosoftLearnProvider._category_for_signals(
+        subjects=["data analytics"],
+        products=["Azure"],
+        roles=["analytics"],
+        title="Observar y solucionar problemas de aplicaciones en Azure",
+    )
+
+    assert category == "Redes, Cloud y Ciberseguridad"
+
+
+def test_ms_learn_business_course_keeps_business_category() -> None:
+    category = MicrosoftLearnProvider._category_for_signals(
+        subjects=[],
+        products=["m365 business"],
+        roles=[],
+        title="Introducción a Microsoft 365 Business para pymes",
+    )
+
+    assert category == "Administración de Empresas y Derecho"
+
+
+def test_ms_learn_uses_roles_only_when_content_signals_are_unclassified() -> None:
+    category = MicrosoftLearnProvider._category_for_signals(
+        subjects=[],
+        products=[],
+        roles=["business owner"],
+        title="General professional learning",
+    )
+
+    assert category == "Administración de Empresas y Derecho"
+
+
 def test_ms_learn_can_include_modules_and_uses_duration_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

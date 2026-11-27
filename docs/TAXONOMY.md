@@ -195,8 +195,8 @@ Redes, administración de sistemas, cloud computing, ciberseguridad, seguridad d
 - Un `virtual environment`, `cloud environment` o `development environment` describe un entorno tecnológico, no medio ambiente natural: clasifica por la tecnología identificada (normalmente `#02` o `#03`), nunca por `#10` solo por la palabra *environment*.
 - Implementación de software sin foco de redes, operaciones o seguridad → `#03`.
 - Operación de sistemas de escritorio, Intune, soporte técnico y administración de endpoints → `#06`; en especial los patrones de dispositivo y producto más específicos vencen a señales genéricas de negocio o rol.
-- El nombre de un rol (`administrator`, `business owner`, `technology manager`) no debe dominar un título o señal de producto más específico. En Microsoft Learn el proveedor devuelve la primera señal que clasifica, por lo que las señales específicas deben estar disponibles primero en subjects/products.
-- `Course` clasifica con la pista de categoría, keywords y título; no busca sinónimos en la descripción. Microsoft Learn, en cambio, asigna la categoría con subjects, products y roles en ese orden y devuelve la primera señal clasificable antes de pasar el resultado al modelo.
+- El nombre de un rol (`administrator`, `business owner`, `technology manager`) no debe dominar un título o señal de producto más específica. Microsoft Learn evalúa conjuntamente `title + subjects + products` mediante la coincidencia léxica más larga de `resolve_category()` y recurre a `roles` solo si esas señales de contenido no clasifican.
+- `Course` clasifica con la pista de categoría, keywords y título; no busca sinónimos en la descripción. Microsoft Learn aplica la misma prioridad por especificidad al título, las materias y los productos; los roles son respaldo, no evidencia temática preferente.
 - Gobierno o estrategia empresarial de servicios cloud sin tema técnico puede pertenecer a `#07`; evita clasificar por el nombre del producto sin revisar el objetivo del curso.
 - Sostenibilidad de centros de datos → `#10` solo cuando el objeto de estudio sea sostenibilidad/impacto ambiental, no la infraestructura en sí.
 
@@ -213,7 +213,7 @@ Redes, administración de sistemas, cloud computing, ciberseguridad, seguridad d
 - **Progresión sugerida:** fundamentos de redes/sistemas → administración cloud → seguridad/operaciones especializadas. No asumir que una certificación o nivel profesional es equivalente a `Avanzado` sin dato de origen.
 - **Adyacencias útiles:** `#03` para automatización y scripting; `#06` para fundamentos TIC; `#01` para infraestructura de IA; `#08` para automatización industrial/IoT si el curso relaciona ambos dominios.
 - **Evitar:** agrupar por las palabras `services` o `environment` sin el contexto técnico; no usar `#10` por la mera aparición de *environment*.
-- Las señales `data analytics` clasifican como `#01`; si una ficha de observabilidad de Azure también contiene esa señal, debe prevalecer una señal de Azure Monitor/Application Insights/aplicaciones en Azure más específica. El adaptador de Microsoft Learn examina señales en orden, no compara la especificidad entre señales distintas.
+- Las señales `data analytics` clasifican como `#01`; en una ficha de observabilidad de Azure, patrones de contenido más específicos como `azure monitor`, `application insights` o `aplicaciones en azure` prevalecen globalmente. Una señal de rol como `analytics` solo se usa como respaldo si título, materias y productos no clasifican.
 
 ### 03. Programación y Desarrollo de Software
 
@@ -384,7 +384,7 @@ Administración, gestión empresarial, emprendimiento, finanzas, contabilidad, e
 | Grupo | Literales |
 |---|---|
 | ES | `administracion`; `gestion empresarial`; `gestion`; `emprendimiento`; `finanzas`; `contabilidad`; `economia`; `derecho`; `leyes`; `recursos humanos`; `liderazgo`; `negocios`; `comercio`; `gestion de proyectos`; `ventas`; `atencion al cliente` |
-| EN | `business`; `business administration`; `management`; `entrepreneurship`; `finance`; `accounting`; `economics`; `law`; `legal`; `human resources`; `leadership`; `project management`; `customer service` |
+| EN | `business`; `business administration`; `microsoft 365 business`; `management`; `entrepreneurship`; `finance`; `accounting`; `economics`; `law`; `legal`; `human resources`; `leadership`; `project management`; `customer service` |
 | Técnico / metodologías | `pmp`; `scrum`; `agile` |
 
 #### Guía para Rutas de Aprendizaje con Python e IA (Hito 4)

@@ -191,8 +191,17 @@ class MicrosoftLearnProvider(ProviderBase):
         roles: list[str],
         title: str,
     ) -> str:
-        for signal in (*subjects, *products, *roles, title):
+        category = resolve_category(
+            keywords=[*subjects, *products],
+            title=title,
+        )
+        if category != "Pendiente_Categoria":
+            return category
+
+        # Preserve exact canonical labels supplied as content signals.
+        for signal in (*subjects, *products):
             category = resolve_category(category_hint=signal)
             if category != "Pendiente_Categoria":
                 return category
-        return "Pendiente_Categoria"
+
+        return resolve_category(keywords=roles)
