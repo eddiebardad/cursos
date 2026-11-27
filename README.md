@@ -18,7 +18,7 @@ flowchart LR
 
 En n8n, `canonical_url` identifica el curso y `content_hash` permite detectar cambios descriptivos. Las actualizaciones siguen **Read-Merge-PUT**: leer el recurso, combinar los campos y enviar el recurso completo mediante `PUT`. Los datos nunca se escriben directamente en Omeka S desde este CLI.
 
-## Proveedores activos en v0.4.0
+## Proveedores activos en v0.4.1
 
 | Identificador | Fuente y motor | Idioma predominante | Política de acceso |
 |---|---|---|---|
@@ -92,7 +92,7 @@ uv run cursodex run -p ms_learn --enable-modules --limit 10 --output -
 
 ## Taxonomía Cursodex
 
-El vocabulario de [mappings/vocab_map.yml](mappings/vocab_map.yml) contiene **17 etiquetas canónicas** basadas en UNESCO CINE-F 2013 y complementadas por DigComp 2.2, DigCompEdu, EntreComp, LifeComp y GreenComp. La versión de la taxonomía corresponde al release `v0.4.0`.
+El vocabulario de [mappings/vocab_map.yml](mappings/vocab_map.yml) contiene **17 etiquetas canónicas** basadas en UNESCO CINE-F 2013 y complementadas por DigComp 2.2, DigCompEdu, EntreComp, LifeComp y GreenComp. El ajuste léxico de esta versión mejora la clasificación de Windows/endpoints y la observabilidad cloud sin cambiar las etiquetas canónicas.
 
 | # | Código CINE-F | Categoría |
 |---:|---|---|

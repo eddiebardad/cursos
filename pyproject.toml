@@ -1,6 +1,6 @@
 [project]
 name = "cursodex-extractor"
-version = "0.4.0"
+version = "0.4.1"
 description = "CLI sin estado para extraer y normalizar cursos gratuitos con JSON-LD/CSV para Omeka S; stateless course extractor with Schema.org and Dublin Core exports."
 readme = "README.md"
 requires-python = ">=3.11"

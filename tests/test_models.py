@@ -23,6 +23,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from providers.ms_learn import MicrosoftLearnProvider
 from schemas.models import (
     AccessType,
     Course,
@@ -375,6 +376,78 @@ def test_cloud_security_vocabulary_maps_microsoft_products(signal: str) -> None:
     )
 
     assert course.category == "Redes, Cloud y Ciberseguridad"
+
+
+def test_windows_11_pro_course_is_classified_as_general_ict() -> None:
+    course = Course(
+        name="Windows 11 Pro Acreditación 2026",
+        url="https://learn.microsoft.com/courses/windows-11-pro",
+        description=(
+            "Seguridad y administración integradas, aspectos básicos de "
+            "dispositivos."
+        ),
+        in_language="es",
+        keywords=[
+            "windows 11",
+            "m365 business",
+            "microsoft 365 copilot",
+            "intune",
+            "administrator",
+            "business owner",
+            "technology manager",
+        ],
+    )
+
+    assert (
+        course.category
+        == "Tecnologías de la Información y la Comunicación (General)"
+    )
+    assert (
+        MicrosoftLearnProvider._category_for_signals(
+            subjects=["windows 11"],
+            products=["m365 business", "microsoft 365 copilot", "intune"],
+            roles=["administrator", "business owner", "technology manager"],
+            title="Windows 11 Pro Acreditación 2026",
+        )
+        == "Tecnologías de la Información y la Comunicación (General)"
+    )
+
+
+@pytest.mark.parametrize(
+    "title",
+    ["Microsoft Purview", "Aplicaciones en Azure"],
+)
+def test_cloud_operations_and_observability_map_to_cloud_security(title: str) -> None:
+    course = Course(
+        name=title,
+        url="https://learn.microsoft.com/courses/cloud-operations",
+        description="Curso técnico de operación y solución de problemas cloud.",
+        in_language="es",
+        keywords=["observe-troubleshoot-apps", "analytics"],
+    )
+
+    assert course.category == "Redes, Cloud y Ciberseguridad"
+    assert (
+        MicrosoftLearnProvider._category_for_signals(
+            subjects=["aplicaciones en azure"],
+            products=["Application Insights"],
+            roles=["analytics"],
+            title=title,
+        )
+        == "Redes, Cloud y Ciberseguridad"
+    )
+
+
+def test_business_administration_course_stays_in_business_category() -> None:
+    course = Course(
+        name="M365 Business Administration",
+        url="https://example.com/courses/business-administration",
+        description="Curso de gestión empresarial y administración de negocios.",
+        in_language="en",
+        keywords=["m365 business", "business administration"],
+    )
+
+    assert course.category == "Administración de Empresas y Derecho"
 
 
 def test_generic_data_keyword_does_not_create_data_science_category() -> None:

@@ -1,6 +1,6 @@
 # Taxonomía normativa y guía semántica de Cursodex
 
-**Versión de referencia:** Cursodex Extractor `v0.4.0`
+**Versión de referencia:** Cursodex Extractor `v0.4.1`
 
 **Fuentes de verdad del comportamiento:** [`mappings/vocab_map.yml`](../mappings/vocab_map.yml) y [`schemas/models.py`](../schemas/models.py).
 **Propósito:** catalogación consistente, auditoría de resultados y base de conocimiento para el futuro generador de rutas `schema:ItemList` (Hito 4).
@@ -188,12 +188,15 @@ CINE-F `0612` (diseño y administración de bases de datos y redes; subcampo de 
 
 #### Qué incluye (Alcance disciplinar)
 
-Redes, administración de sistemas, cloud computing, ciberseguridad, seguridad de redes, criptografía, firewalls, VPN, hacking ético, SOC, DevOps, contenedores, Kubernetes, Cisco Packet Tracer, Azure, AWS y Google Cloud.
+Redes, administración de sistemas, cloud computing, ciberseguridad, seguridad de redes, criptografía, firewalls, VPN, hacking ético, SOC, DevOps, contenedores, Kubernetes, Cisco Packet Tracer, Azure, AWS y Google Cloud. Incluye operación y migración cloud, protección/compliance y observabilidad de servicios y aplicaciones.
 
 #### Fronteras y exclusiones (Qué NO incluye y adónde va)
 
 - Un `virtual environment`, `cloud environment` o `development environment` describe un entorno tecnológico, no medio ambiente natural: clasifica por la tecnología identificada (normalmente `#02` o `#03`), nunca por `#10` solo por la palabra *environment*.
 - Implementación de software sin foco de redes, operaciones o seguridad → `#03`.
+- Operación de sistemas de escritorio, Intune, soporte técnico y administración de endpoints → `#06`; en especial los patrones de dispositivo y producto más específicos vencen a señales genéricas de negocio o rol.
+- El nombre de un rol (`administrator`, `business owner`, `technology manager`) no debe dominar un título o señal de producto más específico. En Microsoft Learn el proveedor devuelve la primera señal que clasifica, por lo que las señales específicas deben estar disponibles primero en subjects/products.
+- `Course` clasifica con la pista de categoría, keywords y título; no busca sinónimos en la descripción. Microsoft Learn, en cambio, asigna la categoría con subjects, products y roles en ese orden y devuelve la primera señal clasificable antes de pasar el resultado al modelo.
 - Gobierno o estrategia empresarial de servicios cloud sin tema técnico puede pertenecer a `#07`; evita clasificar por el nombre del producto sin revisar el objetivo del curso.
 - Sostenibilidad de centros de datos → `#10` solo cuando el objeto de estudio sea sostenibilidad/impacto ambiental, no la infraestructura en sí.
 
@@ -201,15 +204,16 @@ Redes, administración de sistemas, cloud computing, ciberseguridad, seguridad d
 
 | Grupo | Literales |
 |---|---|
-| ES | `ciberseguridad`; `seguridad informatica`; `computacion en la nube`; `redes`; `redes de computadoras`; `seguridad de redes`; `hacking etico`; `criptografia`; `administracion de sistemas`; `administracion de redes`; `internet de las cosas` |
-| EN | `cybersecurity`; `information security`; `cloud computing`; `networking`; `computer networks`; `network security`; `ethical hacking`; `cryptography` |
-| Técnico / productos | `cloud`; `azure`; `aws`; `amazon web services`; `google cloud`; `gcp`; `cisco`; `ccna`; `ccnp`; `pentesting`; `soc`; `firewall`; `vpn`; `kubernetes`; `docker`; `devops`; `sysadmin`; `linux`; `iot`; `cisco packet tracer`; `packet tracer`; `purview`; `microsoft purview`; `entra`; `defender` |
+| ES | `ciberseguridad`; `seguridad informatica`; `computacion en la nube`; `redes`; `redes de computadoras`; `seguridad de redes`; `hacking etico`; `criptografia`; `administracion de sistemas`; `administracion de redes`; `internet de las cosas`; `migracion a azure`; `migracion a la nube`; `observabilidad cloud`; `solucionar problemas de aplicaciones en azure`; `aplicaciones en azure` |
+| EN | `cybersecurity`; `information security`; `cloud computing`; `networking`; `computer networks`; `network security`; `ethical hacking`; `cryptography`; `cloud migration`; `insider risk` |
+| Técnico / productos | `cloud`; `azure`; `aws`; `amazon web services`; `google cloud`; `gcp`; `cisco`; `ccna`; `ccnp`; `pentesting`; `soc`; `firewall`; `vpn`; `kubernetes`; `docker`; `devops`; `sysadmin`; `linux`; `iot`; `cisco packet tracer`; `packet tracer`; `purview`; `microsoft purview`; `azure monitor`; `application insights`; `entra`; `defender` |
 
 #### Guía para Rutas de Aprendizaje con Python e IA (Hito 4)
 
 - **Progresión sugerida:** fundamentos de redes/sistemas → administración cloud → seguridad/operaciones especializadas. No asumir que una certificación o nivel profesional es equivalente a `Avanzado` sin dato de origen.
 - **Adyacencias útiles:** `#03` para automatización y scripting; `#06` para fundamentos TIC; `#01` para infraestructura de IA; `#08` para automatización industrial/IoT si el curso relaciona ambos dominios.
 - **Evitar:** agrupar por las palabras `services` o `environment` sin el contexto técnico; no usar `#10` por la mera aparición de *environment*.
+- Las señales `data analytics` clasifican como `#01`; si una ficha de observabilidad de Azure también contiene esa señal, debe prevalecer una señal de Azure Monitor/Application Insights/aplicaciones en Azure más específica. El adaptador de Microsoft Learn examina señales en orden, no compara la especificidad entre señales distintas.
 
 ### 03. Programación y Desarrollo de Software
 
@@ -328,11 +332,15 @@ CINE-F `061`, campo detallado general de TIC. Es la categoría residual de infor
 
 #### Qué incluye (Alcance disciplinar)
 
-Fundamentos de informática, computación, tecnologías de información, sistemas de información y telecomunicaciones de carácter general.
+Fundamentos de informática, computación, tecnologías de información, sistemas de información y telecomunicaciones de carácter general; sistemas operativos de escritorio/cliente, administración de dispositivos y endpoints, soporte técnico y modern desktop.
 
 #### Fronteras y exclusiones (Qué NO incluye y adónde va)
 
 - Datos/IA → `#01`; redes/cloud/seguridad → `#02`; programación y desarrollo → `#03`; marketing digital → `#04`; competencias digitales/ofimática → `#05`.
+- No clasificar como ofimática (`#05`) la administración/soporte de Windows, Intune o endpoints: esos temas técnicos quedan en `#06`. El uso básico de Word, Excel y Microsoft 365 continúa en `#05`.
+- Infraestructura cloud, redes, ciberseguridad, Purview y observabilidad cloud → `#02`.
+- `administracion de sistemas` está configurado tanto en `#02` como aquí. Al empatar su longitud, el orden YAML conserva la resolución en `#02`; una señal de escritorio/endpoint más específica como `windows 11 pro` o `endpoint management` resuelve `#06`.
+- La descripción no participa en el matching de categoría del modelo. Las señales deben aparecer en título, keywords o pista; en Microsoft Learn una señal de subject/product más específica evita que una coincidencia secundaria de rol clasifique antes.
 - No usar esta categoría solo porque el curso se imparta mediante tecnología; debe tratar de TIC como materia.
 - `IT`, `tic`, `technology` e `informatica` son disparadores cortos o amplios: revisar siempre el texto completo y el orden de especificidad.
 
@@ -340,8 +348,9 @@ Fundamentos de informática, computación, tecnologías de información, sistema
 
 | Grupo | Literales |
 |---|---|
-| ES | `tecnologias de la informacion`; `tic`; `informatica`; `ciencias de la computacion`; `computacion`; `tecnologia`; `sistemas de informacion`; `telecomunicaciones` |
-| EN | `information technology`; `it`; `computer science`; `technology`; `telecommunications` |
+| ES | `tecnologias de la informacion`; `tic`; `informatica`; `ciencias de la computacion`; `computacion`; `tecnologia`; `sistemas de informacion`; `telecomunicaciones`; `windows 11`; `windows 11 pro`; `windows 10`; `sistema operativo`; `sistemas operativos`; `administracion de dispositivos`; `gestion de dispositivos`; `administracion de sistemas`; `soporte tecnico` |
+| EN | `information technology`; `it`; `computer science`; `technology`; `telecommunications`; `operating system`; `operating systems`; `linux desktop`; `help desk`; `it support`; `device management`; `endpoint management`; `modern desktop` |
+| Técnico / productos | `macos`; `intune`; `microsoft intune` |
 
 #### Guía para Rutas de Aprendizaje con Python e IA (Hito 4)
 

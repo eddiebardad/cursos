@@ -58,7 +58,7 @@ Cursodex es un catálogo académico abierto, semántico e interoperable que agre
 El repositorio ha superado los **Pasos 1, 2, 3 y 4A–4C**, con validación de pruebas de sistema operativo, lint y tipado:
 
 * **Gestión de Entorno y Gobernanza (`pyproject.toml`, `uv.lock`):**
-  * Entorno totalmente gestionado por `uv` (`link-mode = "copy"`), con paquete instalable y versión de release `0.4.0`.
+  * Entorno totalmente gestionado por `uv` (`link-mode = "copy"`), con paquete instalable y versión de release `0.4.1`.
   * Dependencias fijadas y reproducibles para HTTP (`httpx`, `playwright`), extracción (`extruct`, `beautifulsoup4`, `lxml`, `lxml-html-clean`, `html5lib`), modelo (`pydantic`, `pyyaml`) y CLI (`typer`, `click`, `typing-extensions`).
   * Dependencias de desarrollo completas (`pytest`, `pytest-httpx`, `respx`, `ruff`, `mypy`).
 

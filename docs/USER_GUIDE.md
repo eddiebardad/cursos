@@ -1,6 +1,6 @@
 # Guía de usuario y operación
 
-Guía práctica para ejecutar Cursodex Extractor v0.4.0, revisar sus resultados y prepararlos para la curaduría en Omeka S. El extractor solo indexa metadatos y enlaza al proveedor: no descarga ni aloja el contenido del curso.
+Guía práctica para ejecutar Cursodex Extractor v0.4.1, revisar sus resultados y prepararlos para la curaduría en Omeka S. El extractor solo indexa metadatos y enlaza al proveedor: no descarga ni aloja el contenido del curso.
 
 ## 1. Instalación desde cero
 

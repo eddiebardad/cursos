@@ -1,6 +1,6 @@
 # ARCHITECTURE.md — Cursodex Extractor
 
-> **Versión:** 0.4.0 · **Taxonomía canónica CINE-F ampliada**
+> **Versión:** 0.4.1 · **Taxonomía canónica CINE-F ampliada**
 > Documento de referencia permanente para el repositorio `cursos`.  
 > Cualquier cambio arquitectónico debe reflejarse aquí antes de implementarse.
 

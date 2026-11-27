@@ -1,7 +1,7 @@
 """
 cli.py
 ==============================================================================
-Punto de entrada de línea de comandos para Cursodex (v0.4.0).
+Punto de entrada de línea de comandos para Cursodex (v0.4.1).
 
 Cumple estrictamente el contrato Unix:
 1. stdout: reservado para datos estructurados limpios (--output -).
@@ -31,7 +31,7 @@ logger = get_logger(__name__)
 
 app = typer.Typer(
     help=(
-        "Cursodex Extractor v0.4.0 — extracción sin estado de cursos gratuitos "
+        "Cursodex Extractor v0.4.1 — extracción sin estado de cursos gratuitos "
         "(ms_learn, openlearn, aprende, netacad)."
     ),
     pretty_exceptions_enable=False,
@@ -352,7 +352,7 @@ def main_callback(
         typer.Option("--max-pages", help="Máximo de páginas para el rastreador BFS genérico."),
     ] = 100,
 ) -> None:
-    """Punto de entrada general de Cursodex v0.4.0."""
+    """Punto de entrada general de Cursodex v0.4.1."""
     if ctx.invoked_subcommand is None:
         if url or provider:
             _execute_scrape(
