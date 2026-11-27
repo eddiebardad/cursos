@@ -15,6 +15,7 @@ Antes de realizar cambios, diagnosticar errores o planificar tareas, consulta en
 1. [ARCHITECTURE.md](./ARCHITECTURE.md): modelo semántico `Course`, ontologías Schema.org y Dublin Core, contratos de exportación y Omeka S v4+.
 2. [PLAN.md](./PLAN.md): estado de los Pasos 1–4C e hitos de integración con `n8n` y Omeka S.
 3. [.agent/rules/cursodex.md](./.agent/rules/cursodex.md): guardrails permanentes del repositorio.
+4. [docs/TAXONOMY.md](./docs/TAXONOMY.md): fuentes CINE-F/JRC, límites de clasificación y sinónimos vigentes; mantenerlo sincronizado con `mappings/vocab_map.yml`.
 
 ---
 

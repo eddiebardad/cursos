@@ -201,6 +201,8 @@ Cuando la categoría queda pendiente:
 
 Fuente normativa: [mappings/vocab_map.yml](../mappings/vocab_map.yml). Hay 17 etiquetas canónicas; prevalece la coincidencia léxica más larga y el orden del vocabulario desempata:
 
+Consulta el [manual maestro de taxonomía](TAXONOMY.md) para el alcance y las exclusiones de cada categoría, los literales configurados y las recomendaciones para rutas de aprendizaje.
+
 | Código CINE-F / referencia | Etiqueta canónica |
 |---|---|
 | `0613` · DigComp 2.2 | Ciencia de Datos e Inteligencia Artificial |

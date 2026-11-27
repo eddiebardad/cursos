@@ -136,6 +136,8 @@ Cursos de pago o pruebas temporales ("7 días gratis") deben **rechazarse con `V
 
 Los Pasos 1–4C están completados. El catálogo registra únicamente `ms_learn`, `openlearn`, `aprende` y `netacad`. No reactivar proveedores retirados ni añadir aliases fuera de sus adaptadores sin actualizar la documentación y las pruebas.
 
+La referencia normativa, el inventario de sinónimos y los límites de las 17 categorías se documentan en [docs/TAXONOMY.md](../../docs/TAXONOMY.md). Al modificar `mappings/vocab_map.yml`, actualizar también ese manual y su prueba de consistencia.
+
 ## G16 · Contenido de `content_hash` y `canonical_url`
 
 - **`content_hash`**: SHA-256 sobre estos campos en JSON compacto (`sort_keys=True`):

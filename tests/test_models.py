@@ -16,7 +16,9 @@ Verifica:
 ==============================================================================
 """
 
+import re
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
@@ -516,6 +518,35 @@ def test_unmatched_category_sentinel_remains_unchanged() -> None:
     )
 
     assert course.category == "Pendiente_Categoria"
+
+
+def test_taxonomy_document_matches_controlled_vocabulary() -> None:
+    taxonomy_path = Path(__file__).resolve().parents[1] / "docs" / "TAXONOMY.md"
+    assert taxonomy_path.is_file()
+    taxonomy = taxonomy_path.read_text(encoding="utf-8")
+    assert taxonomy.strip()
+
+    sections = list(
+        re.finditer(
+            r"(?ms)^### (\d{2})\. (.+?)\n(.*?)(?=^### \d{2}\. |^## 5\.|\Z)",
+            taxonomy,
+        )
+    )
+    expected_categories = [
+        entry["canonical"] for entry in get_vocab_map()["categories"]
+    ]
+    documented_categories = [match.group(2).strip() for match in sections]
+
+    assert documented_categories == expected_categories
+    assert "Idiomas y Filología" not in documented_categories
+    assert "Servicios y Desarrollo Personal" not in documented_categories
+
+    for entry, section in zip(get_vocab_map()["categories"], sections, strict=True):
+        for synonym in set(entry["synonyms"]):
+            assert f"`{synonym}`" in section.group(3), (
+                f"Taxonomy section for {entry['canonical']!r} omits "
+                f"configured synonym {synonym!r}"
+            )
 
 
 # ==============================================================================

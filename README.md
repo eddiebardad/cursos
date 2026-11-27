@@ -116,6 +116,8 @@ El vocabulario de [mappings/vocab_map.yml](mappings/vocab_map.yml) contiene **17
 
 La categoría **#13** incluye artes, humanidades, Filología, Literatura y Lingüística (`0232`); **#15** corresponde a adquisición y aprendizaje de lenguas (`0231` / MCER). Se prioriza la coincidencia léxica más larga para distinguir, por ejemplo, *English literature* de *English language learning*.
 
+Para el alcance disciplinar, fronteras entre categorías, lista completa de disparadores y contrato previsto para rutas `schema:ItemList`, consulta el [manual maestro de taxonomía](docs/TAXONOMY.md).
+
 ## Estructura del repositorio
 
 ```text
@@ -138,13 +140,14 @@ tests/
   test_models.py · test_providers.py · test_extractor_and_crawler.py
   test_exporters_and_cli.py · __init__.py
 docs/
-  USER_GUIDE.md · index.html
+  TAXONOMY.md · USER_GUIDE.md · index.html
 legacy/
   scripts retirados, ignorados por Git
 ```
 
 ## Documentación
 
+- [Taxonomía normativa y guía semántica](docs/TAXONOMY.md)
 - [Guía de usuario y operación](docs/USER_GUIDE.md)
 - [Manual visual HTML](docs/index.html)
 - [Arquitectura y contratos](ARCHITECTURE.md)

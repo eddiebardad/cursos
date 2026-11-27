@@ -103,6 +103,7 @@ cursos/
 │   └── test_providers.py
 │
 ├── docs/
+│   ├── TAXONOMY.md          # Manual normativo y semántico de las 17 categorías
 │   ├── USER_GUIDE.md        # Guía de usuario y operación
 │   └── index.html           # Manual visual autocontenido
 │
@@ -242,6 +243,8 @@ name, provider, time_required
 La separación lingüística es intencional: **#13** reúne las áreas CINE-F `021` (artes), `022` (humanidades) y `0232` (filología, literatura y lingüística); **#15** cubre `0231`, es decir, el aprendizaje y adquisición de idiomas conforme a niveles MCER. Los gentilicios de idioma no deben desviar títulos que contengan una señal filológica o literaria explícita.
 
 Los marcos europeos JRC aportan vocabulario transversal y no sustituyen los códigos CINE-F: DigComp 2.2 para competencias digitales, DigCompEdu para competencia digital docente, EntreComp para emprendimiento, LifeComp para competencias personales y sociales, y GreenComp para sostenibilidad.
+
+El inventario completo de sinónimos vigentes, reglas de desambiguación y contrato de datos para rutas formativas se mantiene en [docs/TAXONOMY.md](docs/TAXONOMY.md).
 
 ---
 
