@@ -12,7 +12,7 @@ Verifica:
 6. Filtro anti-pago (rechazo con ValidationError si is_accessible_for_free=False).
 7. Limpieza y acotado factual de descripciones (<= 350 chars con elipsis).
 8. Criterios refinados de triaje automático (needs_review).
-9. Orden de especificidad en la resolución de categorías CINE-F 2013 / DigComp 2.2.
+9. Especificidad léxica y categorías CINE-F 2013 / marcos europeos JRC.
 ==============================================================================
 """
 
@@ -26,6 +26,7 @@ from schemas.models import (
     Course,
     canonicalize_url,
     clean_and_truncate_description,
+    get_vocab_map,
     match_synonym_boundary,
     parse_and_normalize_duration,
 )
@@ -98,7 +99,7 @@ def test_synonym_boundary_short_words_no_false_positives():
         description="Un recorrido completo por los grandes autores de la literatura de Italia.",
         in_language="es",
     )
-    assert course.category == "Artes y Humanidades"
+    assert course.category == "Artes, Diseño y Humanidades"
     assert course.category != "Ciencia de Datos e Inteligencia Artificial"
     assert course.category != "Tecnologías de la Información y la Comunicación (General)"
 
@@ -397,6 +398,124 @@ def test_canonical_category_hint_precedes_conflicting_keywords() -> None:
     )
 
     assert course.category == "Redes, Cloud y Ciberseguridad"
+
+
+def test_controlled_vocabulary_contains_exactly_17_categories() -> None:
+    categories = [entry["canonical"] for entry in get_vocab_map()["categories"]]
+    assert categories == [
+        "Ciencia de Datos e Inteligencia Artificial",
+        "Redes, Cloud y Ciberseguridad",
+        "Programación y Desarrollo de Software",
+        "Marketing Digital y Comercio Electrónico",
+        "Competencias Digitales y Ofimática",
+        "Tecnologías de la Información y la Comunicación (General)",
+        "Administración de Empresas y Derecho",
+        "Ingeniería, Industria y Construcción",
+        "Ciencias Naturales, Matemáticas y Estadística",
+        "Sostenibilidad, Medio Ambiente y Agroalimentación",
+        "Salud y Bienestar",
+        "Educación y Pedagogía",
+        "Artes, Diseño y Humanidades",
+        "Ciencias Sociales, Periodismo e Información",
+        "Idiomas",
+        "Desarrollo Personal y Habilidades Transversales",
+        "Hostelería, Turismo y Servicios",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("title", "expected"),
+    [
+        ("Climate change and biodiversity", "Sostenibilidad, Medio Ambiente y Agroalimentación"),
+        ("Energías renovables y economía circular", "Sostenibilidad, Medio Ambiente y Agroalimentación"),
+        ("Agropecuaria sostenible", "Sostenibilidad, Medio Ambiente y Agroalimentación"),
+        ("Time management and personal productivity", "Desarrollo Personal y Habilidades Transversales"),
+        ("Personal leadership and critical thinking", "Desarrollo Personal y Habilidades Transversales"),
+        ("Hospitality and tourism operations", "Hostelería, Turismo y Servicios"),
+        ("Operational customer service", "Hostelería, Turismo y Servicios"),
+        ("English literature", "Artes, Diseño y Humanidades"),
+        ("Literatura inglesa", "Artes, Diseño y Humanidades"),
+        ("Filología hispánica", "Artes, Diseño y Humanidades"),
+        ("Philology", "Artes, Diseño y Humanidades"),
+        ("Linguistics", "Artes, Diseño y Humanidades"),
+        ("Digital humanities", "Artes, Diseño y Humanidades"),
+        ("Classical studies", "Artes, Diseño y Humanidades"),
+        ("English language learning", "Idiomas"),
+        ("Español como lengua extranjera", "Idiomas"),
+    ],
+)
+def test_taxonomy_classifies_new_categories_and_language_studies(
+    title: str, expected: str
+) -> None:
+    course = Course(
+        name=title,
+        url="https://example.com/courses/taxonomy-test",
+        description="A sufficiently detailed course description for category validation.",
+        in_language="en",
+    )
+
+    assert course.category == expected
+
+
+@pytest.mark.parametrize(
+    ("title", "forbidden_categories"),
+    [
+        (
+            "Configure an Azure virtual environment",
+            {"Sostenibilidad, Medio Ambiente y Agroalimentación"},
+        ),
+        (
+            "Deploy REST web services",
+            {"Sostenibilidad, Medio Ambiente y Agroalimentación", "Hostelería, Turismo y Servicios"},
+        ),
+        (
+            "Prepare a development environment",
+            {"Sostenibilidad, Medio Ambiente y Agroalimentación"},
+        ),
+        (
+            "Connect to cloud services",
+            {"Hostelería, Turismo y Servicios"},
+        ),
+        (
+            "Configure Azure services",
+            {"Hostelería, Turismo y Servicios"},
+        ),
+        (
+            "Design financial services",
+            {"Hostelería, Turismo y Servicios"},
+        ),
+        (
+            "Implement microservicios",
+            {"Hostelería, Turismo y Servicios"},
+        ),
+        (
+            "Configura un entorno de desarrollo",
+            {"Sostenibilidad, Medio Ambiente y Agroalimentación"},
+        ),
+    ],
+)
+def test_technology_phrases_do_not_collide_with_environment_or_services(
+    title: str, forbidden_categories: set[str]
+) -> None:
+    course = Course(
+        name=title,
+        url="https://example.com/courses/technology-phrases",
+        description="A sufficiently detailed course description for category validation.",
+        in_language="en",
+    )
+
+    assert course.category not in forbidden_categories
+
+
+def test_unmatched_category_sentinel_remains_unchanged() -> None:
+    course = Course(
+        name="A course about an unclassified subject",
+        url="https://example.com/courses/unclassified-subject",
+        description="A sufficiently detailed course description for category validation.",
+        in_language="en",
+    )
+
+    assert course.category == "Pendiente_Categoria"
 
 
 # ==============================================================================

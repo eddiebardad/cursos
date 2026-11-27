@@ -1,4 +1,4 @@
-# Cursodex Extractor — Guardrails Permanentes del Agente (v0.3.0)
+# Cursodex Extractor — Guardrails Permanentes del Agente (v0.4.0)
 
 > Este archivo define las reglas inquebrantables para cualquier agente de IA
 > que trabaje sobre el repositorio `cursos` (cursodex-extractor).
@@ -85,8 +85,8 @@ Nunca usar `sys.exit()` directamente: siempre `raise typer.Exit(code=N)`.
 
 ## G10 · Vocabulario controlado vía `vocab_map.yml` y matching con límites de palabra
 
-- Las categorías canónicas (CINE-F 2013 + subdivisión DigComp 2.2) se definen únicamente en `mappings/vocab_map.yml`.
-- Las reglas se evalúan de **más específica a más general** (subramas digitales concretas antes que categorías padre y áreas tradicionales).
+- Las 17 categorías canónicas (CINE-F 2013 + DigComp 2.2, DigCompEdu, EntreComp, LifeComp y GreenComp) se definen únicamente en `mappings/vocab_map.yml`.
+- Prevalece la coincidencia léxica más larga; el orden del vocabulario desempata coincidencias de igual longitud.
 - El matching de sinónimos **debe usar límites de palabra (`\b...\b` / caracteres no alfanuméricos)** para evitar falsos positivos con palabras cortas como `"ia"`, `"ai"`, `"it"` en palabras como `"historia"` o `"literatura"`.
 - Si ningún sinónimo coincide → `category = "Pendiente_Categoria"` + `needs_review = True`.
 - Prohibido hardcodear mapeos de categorías dentro de los providers o parsers.

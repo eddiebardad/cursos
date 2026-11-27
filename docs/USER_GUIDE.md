@@ -1,6 +1,6 @@
 # Guía de usuario y operación
 
-Guía práctica para ejecutar Cursodex Extractor v0.3.0, revisar sus resultados y prepararlos para la curaduría en Omeka S. El extractor solo indexa metadatos y enlaza al proveedor: no descarga ni aloja el contenido del curso.
+Guía práctica para ejecutar Cursodex Extractor v0.4.0, revisar sus resultados y prepararlos para la curaduría en Omeka S. El extractor solo indexa metadatos y enlaza al proveedor: no descarga ni aloja el contenido del curso.
 
 ## 1. Instalación desde cero
 
@@ -46,7 +46,7 @@ Las variables opcionales se leen en [config.py](../config.py) al iniciar el proc
 | `USER_AGENT` | `CursodexBot/1.0 (+https://cursodex.com; academic research index)` | Identifica el tráfico del extractor. Mantén una identidad clara y de investigación. |
 | `HTTP_TIMEOUT` | `30.0` segundos | Timeout de las solicitudes HTTP. |
 | `COURTESY_DELAY` | `1.0` segundo | Pausa mínima entre solicitudes del cliente HTTP. |
-| `MAX_RESULTS` | `0` | Variable declarada en la configuración, pero no conectada al CLI en v0.3.0; usa `--limit` para limitar una ejecución. |
+| `MAX_RESULTS` | `0` | Variable declarada en la configuración, pero no conectada al CLI; usa `--limit` para limitar una ejecución. |
 | `LOG_LEVEL` | `INFO` | Nivel de logging enviado a `stderr`. |
 
 Ejemplo temporal en PowerShell:
@@ -199,25 +199,31 @@ Cuando la categoría queda pendiente:
 
 ## 4. Vocabulario controlado oficial
 
-Fuente normativa: [mappings/vocab_map.yml](../mappings/vocab_map.yml). Las categorías se evalúan en orden de especificidad; las etiquetas canónicas son:
+Fuente normativa: [mappings/vocab_map.yml](../mappings/vocab_map.yml). Hay 17 etiquetas canónicas; prevalece la coincidencia léxica más larga y el orden del vocabulario desempata:
 
 | Código CINE-F / referencia | Etiqueta canónica |
 |---|---|
-| `0613 / DigComp 2.2` | Ciencia de Datos e Inteligencia Artificial |
-| `0612 / DigComp 2.2` | Redes, Cloud y Ciberseguridad |
-| `0613 / DigComp 2.2` | Programación y Desarrollo de Software |
-| `0414 / DigComp 2.2` | Marketing Digital y Comercio Electrónico |
-| `0011 / DigComp 2.2` | Competencias Digitales y Ofimática |
-| `061` | Tecnologías de la Información y la Comunicación (General) |
-| `04` | Administración de Empresas y Derecho |
+| `0613` · DigComp 2.2 | Ciencia de Datos e Inteligencia Artificial |
+| `0612` · DigComp 2.2 | Redes, Cloud y Ciberseguridad |
+| `0613` · DigComp 2.2 | Programación y Desarrollo de Software |
+| `0414` · DigComp 2.2 · EntreComp | Marketing Digital y Comercio Electrónico |
+| `0011` · DigComp 2.2 · DigCompEdu | Competencias Digitales y Ofimática |
+| `061` · DigComp 2.2 | Tecnologías de la Información y la Comunicación (General) |
+| `04` · EntreComp | Administración de Empresas y Derecho |
 | `07` | Ingeniería, Industria y Construcción |
 | `05` | Ciencias Naturales, Matemáticas y Estadística |
+| `08` + `052` · GreenComp | Sostenibilidad, Medio Ambiente y Agroalimentación |
 | `09` | Salud y Bienestar |
-| `01` | Educación y Pedagogía |
-| `02` | Artes y Humanidades |
+| `01` · DigCompEdu | Educación y Pedagogía |
+| `021` + `022` + `0232` | Artes, Diseño y Humanidades |
 | `03` | Ciencias Sociales, Periodismo e Información |
-| `023` | Idiomas y Filología |
-| `10` | Servicios y Desarrollo Personal |
+| `0231` · MCER | Idiomas |
+| `0031` · LifeComp | Desarrollo Personal y Habilidades Transversales |
+| `101`–`104` | Hostelería, Turismo y Servicios |
+
+**Desambiguación normativa:** #13 corresponde a `021 + 022 + 0232` (artes, humanidades, Filología, Literatura y Lingüística); #15 corresponde a `0231` (aprendizaje y adquisición de idiomas conforme al MCER). Por eso *English literature* se clasifica como Artes, Diseño y Humanidades y *English language learning* como Idiomas.
+
+Los marcos europeos JRC son complementarios a CINE-F: DigComp 2.2 (competencia digital), DigCompEdu (competencia digital docente), EntreComp (emprendimiento), LifeComp (competencias personales y sociales) y GreenComp (sostenibilidad).
 
 **Niveles educativos canónicos**: `Principiante`, `Intermedio`, `Avanzado`.
 

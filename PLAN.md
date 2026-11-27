@@ -58,7 +58,7 @@ Cursodex es un catálogo académico abierto, semántico e interoperable que agre
 El repositorio ha superado los **Pasos 1, 2, 3 y 4A–4C**, con validación de pruebas de sistema operativo, lint y tipado:
 
 * **Gestión de Entorno y Gobernanza (`pyproject.toml`, `uv.lock`):**
-  * Entorno totalmente gestionado por `uv` (`link-mode = "copy"`), con paquete instalable y versión de release `0.3.0`.
+  * Entorno totalmente gestionado por `uv` (`link-mode = "copy"`), con paquete instalable y versión de release `0.4.0`.
   * Dependencias fijadas y reproducibles para HTTP (`httpx`, `playwright`), extracción (`extruct`, `beautifulsoup4`, `lxml`, `lxml-html-clean`, `html5lib`), modelo (`pydantic`, `pyyaml`) y CLI (`typer`, `click`, `typing-extensions`).
   * Dependencias de desarrollo completas (`pytest`, `pytest-httpx`, `respx`, `ruff`, `mypy`).
 
@@ -73,8 +73,9 @@ El repositorio ha superado los **Pasos 1, 2, 3 y 4A–4C**, con validación de p
   * Idempotencia comprobada: `Course.model_validate(c.model_dump())` produce un modelo idéntico con el mismo hash.
 
 * **Vocabulario Controlado Jerárquico (`mappings/vocab_map.yml`):**
-  * Hibridación CINE-F 2013 (UNESCO) + DigComp 2.2 con orden de evaluación estricto **de más específico a más general**.
-  * Cobertura de subramas tecnológicas prioritarias (Ciencia de Datos e IA; Redes, Cloud y Ciberseguridad; Programación y Desarrollo de Software; Marketing Digital y Comercio Electrónico; Competencias Digitales y Ofimática) evaluadas antes de TIC General y áreas tradicionales.
+  * Taxonomía de 17 categorías canónicas que cubre los bloques CINE-F 2013 `00`–`10`, incluida la separación de `0232` (Filología, Literatura y Lingüística) frente a `0231` (adquisición de idiomas).
+  * Alineación complementaria con DigComp 2.2, DigCompEdu, EntreComp, LifeComp y GreenComp.
+  * Resolución léxica por coincidencia más larga con límites de palabra (`match_synonym_boundary`); el orden del vocabulario desempata coincidencias igual de específicas.
   * Cobertura de sinónimos bilingües con límites estrictos de palabra (`match_synonym_boundary`), evitando falsos positivos con acrónimos cortos (`"ia"`, `"ai"`, `"it"`, `"ti"`, `"r"`, `"c"`).
   * Sinónimos específicos agregados para IoT, Cisco Packet Tracer, Power Platform, Power Apps, Ventas y Atención al Cliente.
 
@@ -107,7 +108,7 @@ El catálogo v1 queda limitado a cuatro proveedores operativos: `ms_learn`, `ope
 
 ## 3. Especificación Detallada del Paso 4 (Cierre del Hito 1 — Límite: 31/01/2027)
 
-El Paso 4 completa los adaptadores de proveedores reales y la infraestructura semántica primaria de extracción. Los contratos de exportación y CLI se conservan; el vocabulario y la precedencia de categorías se ajustaron quirúrgicamente para la clasificación real de Microsoft Learn.
+El Paso 4 completa los adaptadores de proveedores reales y la infraestructura semántica primaria de extracción. Los contratos de exportación y CLI se conservan; el vocabulario y la precedencia de categorías se ajustaron para la clasificación observada en Microsoft Learn.
 
 ### 3.1 `core/extractor.py` (Nuevo Módulo) y Refactor de `core/parser.py`
 

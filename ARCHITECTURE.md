@@ -1,6 +1,6 @@
 # ARCHITECTURE.md — Cursodex Extractor
 
-> **Versión:** 0.3.0 · **Paso 4C completado**
+> **Versión:** 0.4.0 · **Taxonomía canónica CINE-F ampliada**
 > Documento de referencia permanente para el repositorio `cursos`.  
 > Cualquier cambio arquitectónico debe reflejarse aquí antes de implementarse.
 
@@ -84,7 +84,7 @@ cursos/
 │   └── __init__.py
 │
 ├── mappings/
-│   └── vocab_map.yml        # Vocabulario controlado (CINE-F + DigComp 2.2 + niveles + idiomas)
+│   └── vocab_map.yml        # 17 categorías CINE-F/JRC + niveles + idiomas
 │
 ├── exporters/
 │   ├── base.py              # BaseExporter ABC
@@ -160,7 +160,7 @@ cursos/
 | `description` | `schema:description` / `dcterms:description` | `str \| None` | — | Máx ~350 chars, sin HTML, corte por oración/palabra |
 | `provider` | `schema:provider` / `dcterms:publisher` | `str \| None` | — | Nombre del proveedor (ej. `Microsoft Learn`) |
 | `authors` | `schema:author` / `dcterms:creator` | `list[str] \| None` | — | Autores/instructores (separados por `;` en CSV) |
-| `category` | `schema:about` / `dcterms:subject` | `str \| None` | — | Categoría CINE-F 2013 / DigComp 2.2 controlada |
+| `category` | `schema:about` / `dcterms:subject` | `str \| None` | — | Categoría controlada de la taxonomía CINE-F 2013 + marcos JRC |
 | `keywords` | `schema:keywords` | `list[str] \| None` | — | Etiquetas granulares originales del proveedor |
 | `access_type` | `_cursodex_meta` + `schema:educationalCredentialAwarded` | `AccessType` (Enum) | — | 3 valores válidos (ver §5.2) |
 | `educational_level` | `schema:educationalLevel` | `str \| None` | — | `Principiante`/`Intermedio`/`Avanzado` |
@@ -214,6 +214,34 @@ name, provider, time_required
 - Se proporcionó un texto de duración no vacío que no pudo interpretarse como ISO 8601.
 
 *(Nota: La ausencia de `educational_level` no activa `needs_review`, ya que muchos proveedores rigurosos no declaran nivel formal y esto evitará fatiga de revisión manual).*
+
+### 5.6 Taxonomía normativa de 17 categorías
+
+`mappings/vocab_map.yml` declara exactamente las siguientes etiquetas canónicas. El orden de esta tabla es el orden normativo de presentación; la resolución léxica selecciona la coincidencia más larga y usa el orden de vocabulario para desempatar. `Pendiente_Categoria` es un centinela interno y no pertenece a la taxonomía.
+
+| # | Código UNESCO CINE-F 2013 | Etiqueta canónica | Marco complementario |
+|---:|---|---|---|
+| 1 | `0613` | Ciencia de Datos e Inteligencia Artificial | DigComp 2.2 |
+| 2 | `0612` | Redes, Cloud y Ciberseguridad | DigComp 2.2 |
+| 3 | `0613` | Programación y Desarrollo de Software | DigComp 2.2 |
+| 4 | `0414` | Marketing Digital y Comercio Electrónico | DigComp 2.2 · EntreComp |
+| 5 | `0011` | Competencias Digitales y Ofimática | DigComp 2.2 · DigCompEdu |
+| 6 | `061` | Tecnologías de la Información y la Comunicación (General) | DigComp 2.2 |
+| 7 | `04` | Administración de Empresas y Derecho | EntreComp |
+| 8 | `07` | Ingeniería, Industria y Construcción | — |
+| 9 | `05` | Ciencias Naturales, Matemáticas y Estadística | — |
+| 10 | `08` + `052` | Sostenibilidad, Medio Ambiente y Agroalimentación | GreenComp |
+| 11 | `09` | Salud y Bienestar | — |
+| 12 | `01` | Educación y Pedagogía | DigCompEdu |
+| 13 | `021` + `022` + `0232` | Artes, Diseño y Humanidades | Artes, Humanidades, Filología, Literatura y Lingüística |
+| 14 | `03` | Ciencias Sociales, Periodismo e Información | — |
+| 15 | `0231` | Idiomas | Adquisición de lenguas extranjeras · MCER |
+| 16 | `0031` | Desarrollo Personal y Habilidades Transversales | LifeComp |
+| 17 | `101`–`104` | Hostelería, Turismo y Servicios | — |
+
+La separación lingüística es intencional: **#13** reúne las áreas CINE-F `021` (artes), `022` (humanidades) y `0232` (filología, literatura y lingüística); **#15** cubre `0231`, es decir, el aprendizaje y adquisición de idiomas conforme a niveles MCER. Los gentilicios de idioma no deben desviar títulos que contengan una señal filológica o literaria explícita.
+
+Los marcos europeos JRC aportan vocabulario transversal y no sustituyen los códigos CINE-F: DigComp 2.2 para competencias digitales, DigCompEdu para competencia digital docente, EntreComp para emprendimiento, LifeComp para competencias personales y sociales, y GreenComp para sostenibilidad.
 
 ---
 
@@ -422,7 +450,7 @@ Las decisiones de diseño de Cursodex integran lecciones de los principales agre
 
 1. **OERSI (`oersi-etl`) y Perfil AMB (`dini-ag-kim/amb`):**
    - *Separación estricta entre facetas y etiquetas:* `schema:about` (`category`) provee una categoría controlada única y normalizada para navegación temática; `schema:keywords` retiene las etiquetas libres del proveedor para el futuro recomendador de rutas con IA.
-   - *Hibridación CINE-F 2013 + DigComp 2.2:* Para evitar que el 80% de los cursos colapse en el código UNESCO `061` (TIC), mantenemos CINE-F para ramas tradicionales pero subdividimos la oferta digital en subramas específicas (Datos e IA, Programación, Redes/Cloud/Ciberseguridad, Marketing Digital, Ofimática).
+   - *Hibridación CINE-F 2013 + marcos europeos JRC:* Las 17 categorías cubren los bloques CINE-F `00`–`10` con especialización digital, sostenibilidad y la separación lingüística `0231`/`0232`; DigComp 2.2, DigCompEdu, EntreComp, LifeComp y GreenComp aportan vocabulario transversal.
 
 2. **MOOChub (`schema:Course` interoperable):**
    - Estandarización de duraciones a ISO 8601 (`PT2H30M`), distinción explícita de credencial en `schema:educationalCredentialAwarded` e indexación de la ficha canónica permanente del curso, evitando duplicidad por ediciones temporales (`CourseInstance`).

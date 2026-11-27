@@ -54,6 +54,7 @@ desktop.ini
 *.log
 results*.json
 results*.jsonld
+runs/
 
 # Documentación HTML generada (si se usa docs/)
 docs/html/

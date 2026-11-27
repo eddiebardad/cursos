@@ -33,7 +33,7 @@ Antes de realizar cambios, diagnosticar errores o planificar tareas, consulta en
 * **G7 (Extracción semántica primaria):** Usar `extruct` (`json-ld`, `microdata`, `opengraph`) priorizando `schema:Course`. `BeautifulSoup4` solo actúa como fallback DOM.
 * **G8 (Crawler BFS desactivado por defecto):** `crawl_site()` requiere `--enable-bfs` explícito. Si una URL carece de adaptador y no se pasó el flag, emitir error a `stderr` y salir con código `1`.
 * **G9 (Cortesía y User-Agent):** Pausa entre requests `config.COURTESY_DELAY` (1.0s) y User-Agent obligatorio: `CursodexBot/1.0 (+https://cursodex.com; academic research index)`.
-* **G10 (Vocabulario controlado CINE-F + DigComp):** Mapeo declarado en `mappings/vocab_map.yml`, evaluado **de más específico a más general** con límites de palabra (`match_synonym_boundary`). Si no hay coincidencia $\to$ `category = "Pendiente_Categoria"` y `needs_review = True`.
+* **G10 (Vocabulario controlado CINE-F + marcos JRC):** Las 17 categorías se declaran en `mappings/vocab_map.yml`; prevalece la coincidencia léxica más larga y el orden del vocabulario desempata. Matching con límites de palabra (`match_synonym_boundary`). Si no hay coincidencia $\to$ `category = "Pendiente_Categoria"` y `needs_review = True`.
 * **G11 (`legacy/` en `.gitignore`):** Todo archivo obsoleto o de prueba previa reside en `legacy/` fuera de Git.
 * **G12 (`--output -`):** Infiere automáticamente `--format jsonld` si no se especificó formato.
 * **G13 (Contrato Omeka S v4+):** Cada nodo de propiedad incluye `"property_id": "auto"`. Identificadores y fechas privadas con `"is_public": false`. No incluir `"o:id"` en `@type`. Si `category == "Pendiente_Categoria"`, **omitir** `schema:about` y `dcterms:subject` en el grafo RDF público.

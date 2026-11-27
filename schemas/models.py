@@ -1,12 +1,12 @@
 """
 schemas/models.py
 ==============================================================================
-Modelo estático Pydantic v2 para Cursodex (v0.3.0).
+Modelo estático Pydantic v2 para Cursodex (v0.4.0).
 
 Cumple estrictamente los contratos de normalización semántica, detección de cambios
 (content_hash SHA-256), canonización de URLs (anti-redirección de portada),
 filtro contra falsos gratis, normalización ISO 8601 de duraciones y mapeo
-declarativo de categorías CINE-F 2013 / DigComp 2.2.
+declarativo de 17 categorías CINE-F 2013 y marcos europeos JRC.
 ==============================================================================
 """
 
@@ -122,8 +122,8 @@ def resolve_category(
     title: str | None = None,
 ) -> str:
     """
-    Resuelve la categoría canónica evaluando las reglas de mappings/vocab_map.yml
-    estrictamente DE MÁS ESPECÍFICA A MÁS GENERAL.
+    Resuelve coincidencias priorizando el sinónimo más específico; el orden del
+    vocabulario desempata coincidencias de igual longitud.
     Si ninguna regla coincide, devuelve 'Pendiente_Categoria'.
     """
     vocab = get_vocab_map()
@@ -147,6 +147,7 @@ def resolve_category(
             if canonical and normalized_hint == normalize_text_for_matching(canonical):
                 return canonical
 
+    best_match: tuple[int, str] | None = None
     for cat_entry in categories_list:
         canonical = cat_entry.get("canonical")
         synonyms = cat_entry.get("synonyms", [])
@@ -156,9 +157,11 @@ def resolve_category(
         for syn in synonyms:
             for text_source in sources:
                 if match_synonym_boundary(syn, text_source):
-                    return canonical
+                    specificity = len(normalize_text_for_matching(syn))
+                    if best_match is None or specificity > best_match[0]:
+                        best_match = (specificity, canonical)
 
-    return "Pendiente_Categoria"
+    return best_match[1] if best_match else "Pendiente_Categoria"
 
 
 def resolve_educational_level(level_raw: str | None) -> str | None:
@@ -439,7 +442,10 @@ class Course(BaseModel):
     description: str | None = Field(default=None, description="Resumen descriptivo limpio (máx ~350 chars)")
     provider: str | None = Field(default=None, description="Nombre de la institución o plataforma proveedora")
     authors: list[str] | None = Field(default=None, description="Lista de autores o instructores")
-    category: str | None = Field(default=None, description="Categoría CINE-F 2013 / DigComp 2.2 controlada")
+    category: str | None = Field(
+        default=None,
+        description="Categoría controlada CINE-F 2013 y marcos europeos JRC",
+    )
     keywords: list[str] | None = Field(default=None, description="Etiquetas técnicas originales del proveedor")
 
     # Rigor pedagógico y filtro anti-pago

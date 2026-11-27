@@ -18,7 +18,7 @@ flowchart LR
 
 En n8n, `canonical_url` identifica el curso y `content_hash` permite detectar cambios descriptivos. Las actualizaciones siguen **Read-Merge-PUT**: leer el recurso, combinar los campos y enviar el recurso completo mediante `PUT`. Los datos nunca se escriben directamente en Omeka S desde este CLI.
 
-## Proveedores activos en v0.3.0
+## Proveedores activos en v0.4.0
 
 | Identificador | Fuente y motor | Idioma predominante | Política de acceso |
 |---|---|---|---|
@@ -89,6 +89,32 @@ uv run cursodex run -p ms_learn --enable-modules --limit 10 --output -
 - **JSON-LD**: array de ítems Omeka S v4+, con `property_id: "auto"`, recurso privado por defecto, propiedades Schema.org y espejo Dublin Core.
 - **CSV**: UTF-8 sin BOM, cabeceras canónicas y listas multivalor delimitadas por `;`.
 - **Códigos**: `0` = al menos un curso; `1` = error técnico o de argumentos; `2` = cero cursos sin error técnico.
+
+## Taxonomía Cursodex
+
+El vocabulario de [mappings/vocab_map.yml](mappings/vocab_map.yml) contiene **17 etiquetas canónicas** basadas en UNESCO CINE-F 2013 y complementadas por DigComp 2.2, DigCompEdu, EntreComp, LifeComp y GreenComp. La versión de la taxonomía corresponde al release `v0.4.0`.
+
+| # | Código CINE-F | Categoría |
+|---:|---|---|
+| 1 | `0613` | Ciencia de Datos e Inteligencia Artificial |
+| 2 | `0612` | Redes, Cloud y Ciberseguridad |
+| 3 | `0613` | Programación y Desarrollo de Software |
+| 4 | `0414` | Marketing Digital y Comercio Electrónico |
+| 5 | `0011` | Competencias Digitales y Ofimática |
+| 6 | `061` | Tecnologías de la Información y la Comunicación (General) |
+| 7 | `04` | Administración de Empresas y Derecho |
+| 8 | `07` | Ingeniería, Industria y Construcción |
+| 9 | `05` | Ciencias Naturales, Matemáticas y Estadística |
+| 10 | `08` + `052` | Sostenibilidad, Medio Ambiente y Agroalimentación |
+| 11 | `09` | Salud y Bienestar |
+| 12 | `01` | Educación y Pedagogía |
+| 13 | `021` + `022` + `0232` | Artes, Diseño y Humanidades |
+| 14 | `03` | Ciencias Sociales, Periodismo e Información |
+| 15 | `0231` | Idiomas |
+| 16 | `0031` | Desarrollo Personal y Habilidades Transversales |
+| 17 | `101`–`104` | Hostelería, Turismo y Servicios |
+
+La categoría **#13** incluye artes, humanidades, Filología, Literatura y Lingüística (`0232`); **#15** corresponde a adquisición y aprendizaje de lenguas (`0231` / MCER). Se prioriza la coincidencia léxica más larga para distinguir, por ejemplo, *English literature* de *English language learning*.
 
 ## Estructura del repositorio
 

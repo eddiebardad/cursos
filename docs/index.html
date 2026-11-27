@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Manual visual de Cursodex Extractor v0.3.0: arquitectura, proveedores, contratos semánticos y operación.">
-  <title>Cursodex Extractor · Manual visual v0.3.0</title>
+  <meta name="description" content="Manual visual de Cursodex Extractor v0.4.0: arquitectura, proveedores, contratos semánticos y operación.">
+  <title>Cursodex Extractor · Manual visual v0.4.0</title>
   <style>
     :root {
       color-scheme: light dark;
@@ -207,7 +207,7 @@
 <body>
   <div class="layout">
     <aside class="sidebar" aria-label="Navegación del manual">
-      <a class="brand" href="#inicio">CURSODEX<span>Manual visual · v0.3.0</span></a>
+      <a class="brand" href="#inicio">CURSODEX<span>Manual visual · v0.4.0</span></a>
       <nav>
         <a href="#arquitectura">Arquitectura</a>
         <a href="#proveedores">Proveedores</a>
@@ -223,7 +223,7 @@
 
     <main>
       <header class="hero" id="inicio">
-        <div class="eyebrow">Cursodex Extractor · versión estable 0.3.0</div>
+        <div class="eyebrow">Cursodex Extractor · versión estable 0.4.0</div>
         <h1>Un catálogo abierto.<br>Datos que se entienden.</h1>
         <p class="lead">
           Manual ilustrado del CLI stateless que extrae metadatos de cursos gratuitos,
@@ -501,29 +501,32 @@ uv run cursodex run --url "https://example.org/catalog" --enable-bfs --max-pages
 
       <section id="vocabulario">
         <h2>7. Catálogo de categorías y niveles</h2>
-        <p>El vocabulario fuente se mantiene en <a href="../mappings/vocab_map.yml">mappings/vocab_map.yml</a>. Las coincidencias se prueban desde las categorías tecnológicas específicas hasta las áreas generales.</p>
+        <p>El vocabulario fuente se mantiene en <a href="../mappings/vocab_map.yml">mappings/vocab_map.yml</a> y define 17 etiquetas canónicas. Prevalece la coincidencia léxica más larga; el orden del vocabulario desempata.</p>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Referencia</th><th>Etiqueta canónica</th></tr></thead>
+            <thead><tr><th>#</th><th>CINE-F 2013</th><th>Etiqueta canónica</th><th>Marco complementario</th></tr></thead>
             <tbody>
-              <tr><td>0613 / DigComp 2.2</td><td>Ciencia de Datos e Inteligencia Artificial</td></tr>
-              <tr><td>0612 / DigComp 2.2</td><td>Redes, Cloud y Ciberseguridad</td></tr>
-              <tr><td>0613 / DigComp 2.2</td><td>Programación y Desarrollo de Software</td></tr>
-              <tr><td>0414 / DigComp 2.2</td><td>Marketing Digital y Comercio Electrónico</td></tr>
-              <tr><td>0011 / DigComp 2.2</td><td>Competencias Digitales y Ofimática</td></tr>
-              <tr><td>061</td><td>Tecnologías de la Información y la Comunicación (General)</td></tr>
-              <tr><td>04</td><td>Administración de Empresas y Derecho</td></tr>
-              <tr><td>07</td><td>Ingeniería, Industria y Construcción</td></tr>
-              <tr><td>05</td><td>Ciencias Naturales, Matemáticas y Estadística</td></tr>
-              <tr><td>09</td><td>Salud y Bienestar</td></tr>
-              <tr><td>01</td><td>Educación y Pedagogía</td></tr>
-              <tr><td>02</td><td>Artes y Humanidades</td></tr>
-              <tr><td>03</td><td>Ciencias Sociales, Periodismo e Información</td></tr>
-              <tr><td>023</td><td>Idiomas y Filología</td></tr>
-              <tr><td>10</td><td>Servicios y Desarrollo Personal</td></tr>
+              <tr><td>1</td><td>0613</td><td>Ciencia de Datos e Inteligencia Artificial</td><td>DigComp 2.2</td></tr>
+              <tr><td>2</td><td>0612</td><td>Redes, Cloud y Ciberseguridad</td><td>DigComp 2.2</td></tr>
+              <tr><td>3</td><td>0613</td><td>Programación y Desarrollo de Software</td><td>DigComp 2.2</td></tr>
+              <tr><td>4</td><td>0414</td><td>Marketing Digital y Comercio Electrónico</td><td>DigComp 2.2 · EntreComp</td></tr>
+              <tr><td>5</td><td>0011</td><td>Competencias Digitales y Ofimática</td><td>DigComp 2.2 · DigCompEdu</td></tr>
+              <tr><td>6</td><td>061</td><td>Tecnologías de la Información y la Comunicación (General)</td><td>DigComp 2.2</td></tr>
+              <tr><td>7</td><td>04</td><td>Administración de Empresas y Derecho</td><td>EntreComp</td></tr>
+              <tr><td>8</td><td>07</td><td>Ingeniería, Industria y Construcción</td><td>—</td></tr>
+              <tr><td>9</td><td>05</td><td>Ciencias Naturales, Matemáticas y Estadística</td><td>—</td></tr>
+              <tr><td>10</td><td>08 + 052</td><td>Sostenibilidad, Medio Ambiente y Agroalimentación</td><td>GreenComp</td></tr>
+              <tr><td>11</td><td>09</td><td>Salud y Bienestar</td><td>—</td></tr>
+              <tr><td>12</td><td>01</td><td>Educación y Pedagogía</td><td>DigCompEdu</td></tr>
+              <tr><td>13</td><td>021 + 022 + 0232</td><td>Artes, Diseño y Humanidades</td><td>Artes, Humanidades, Filología, Literatura y Lingüística</td></tr>
+              <tr><td>14</td><td>03</td><td>Ciencias Sociales, Periodismo e Información</td><td>—</td></tr>
+              <tr><td>15</td><td>0231</td><td>Idiomas</td><td>Adquisición de lenguas · MCER</td></tr>
+              <tr><td>16</td><td>0031</td><td>Desarrollo Personal y Habilidades Transversales</td><td>LifeComp</td></tr>
+              <tr><td>17</td><td>101–104</td><td>Hostelería, Turismo y Servicios</td><td>—</td></tr>
             </tbody>
           </table>
         </div>
+        <p><strong>Distinción lingüística:</strong> #13 abarca CINE-F `021 + 022 + 0232`, incluida la Filología, Literatura y Lingüística. #15 abarca `0231`, adquisición de idiomas conforme al MCER. El vocabulario transversal se apoya en DigComp 2.2, DigCompEdu, EntreComp, LifeComp y GreenComp.</p>
         <p><strong>Niveles:</strong> Principiante, Intermedio y Avanzado.</p>
         <p><strong>Idiomas normalizados:</strong> es, en, pt, fr, de e it (ISO 639-1).</p>
       </section>
@@ -577,7 +580,7 @@ uv run cursodex run --url "https://example.org/catalog" --enable-bfs --max-pages
       </section>
 
       <footer>
-        <p>Manual autocontenido de Cursodex Extractor v0.3.0. No necesita JavaScript ni recursos externos para navegar, imprimir o guardarse como PDF.</p>
+        <p>Manual autocontenido de Cursodex Extractor v0.4.0. No necesita JavaScript ni recursos externos para navegar, imprimir o guardarse como PDF.</p>
         <p><a href="../README.md">README</a> · <a href="../ARCHITECTURE.md">Arquitectura</a> · <a href="../PLAN.md">Plan técnico</a> · <a href="USER_GUIDE.md">Guía de usuario</a></p>
       </footer>
     </main>
