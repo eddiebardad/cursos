@@ -11,7 +11,7 @@ from pydantic import ValidationError
 
 from core.crawler import Crawler
 from core.exceptions import ParsingError
-from schemas.models import AccessType, Course
+from schemas.models import AccessType, Course, clean_text_field
 from utils.logger import get_logger
 
 from .base import ProviderBase
@@ -48,6 +48,25 @@ class AprendeProvider(ProviderBase):
             return json.loads(raw)
         except json.JSONDecodeError as exc:
             raise ParsingError(f"Aprende API returned invalid JSON from {url}: {exc}") from exc
+
+    @staticmethod
+    def _catalog_records(data: Any) -> list[dict[str, Any]]:
+        records: Any = data
+        if isinstance(data, dict):
+            records = next(
+                (
+                    data[key]
+                    for key in ("courses", "data", "items")
+                    if isinstance(data.get(key), list)
+                ),
+                None,
+            )
+        if not isinstance(records, list):
+            raise ParsingError(
+                "Aprende catalog response must be a list or contain a "
+                "'courses', 'data' or 'items' list"
+            )
+        return [record for record in records if isinstance(record, dict)]
 
     def _fetch_detail(self, crawler: Crawler, course_id: int | str) -> dict[str, Any]:
         detail_url = f"{_API_ROOT}/api/Courses/{course_id}?platformId=2"
@@ -105,7 +124,22 @@ class AprendeProvider(ProviderBase):
             level = str(raw_level) if raw_level else None
 
         description_value = item.get("description")
-        description = description_value if isinstance(description_value, str) else None
+        description = (
+            clean_text_field(description_value)
+            if isinstance(description_value, str)
+            else None
+        )
+
+        raw_keywords = item.get("keywords")
+        if isinstance(raw_keywords, str):
+            cleaned_keywords = clean_text_field(raw_keywords)
+            if cleaned_keywords:
+                keywords.extend(
+                    keyword.strip()
+                    for keyword in cleaned_keywords.split(",")
+                    if keyword.strip()
+                )
+
         duration_value = next(
             (
                 item.get(field)
@@ -143,14 +177,10 @@ class AprendeProvider(ProviderBase):
         logger.info("Fetching Aprende catalog from %s", _COURSES_URL)
         with Crawler() as crawler:
             data = self._decode_json(crawler.get(_COURSES_URL, headers=_API_HEADERS), _COURSES_URL)
-            if not isinstance(data, dict) or not isinstance(data.get("courses"), list):
-                raise ParsingError("Aprende catalog response must contain a courses array")
 
             seen_ids: set[str] = set()
             emitted = 0
-            for record in data["courses"]:
-                if not isinstance(record, dict):
-                    continue
+            for record in self._catalog_records(data):
                 course_id = record.get("id")
                 if course_id is not None:
                     id_key = str(course_id)
@@ -162,7 +192,10 @@ class AprendeProvider(ProviderBase):
                 if course is None:
                     continue
 
-                if course.description is None and isinstance(course_id, (int, str)):
+                if (
+                    (course.description is None or len(course.description) < 20)
+                    and isinstance(course_id, (int, str))
+                ):
                     detail = self._fetch_detail(crawler, course_id)
                     merged = {**record, **{key: value for key, value in detail.items() if value is not None}}
                     course = self._map_to_course(merged) or course

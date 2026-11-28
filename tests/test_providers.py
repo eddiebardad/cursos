@@ -100,6 +100,33 @@ def _aprende_item(
     return item
 
 
+def _aprende_live_item(course_id: int = 20) -> dict[str, Any]:
+    return {
+        "id": course_id,
+        "platformId": 1,
+        "sectorId": 1,
+        "subsectorId": 16,
+        "courseTypeId": 1,
+        "difficultyId": 1,
+        "name": "Jardinero a gran escala",
+        "active": True,
+        "comingSoon": False,
+        "hide": False,
+        "description": (
+            "<p>&iexcl;Bienvenido!</p><p>En este curso aprender&aacute;s "
+            "a dise&ntilde;ar, mantener y cuidar jardines.</p>"
+        ),
+        "imageUrl": "https://cdn.example.org/course.png",
+        "keywords": "<p>jardines,jardiner&iacute;a,cuidado de plantas</p>",
+        "sector": {"id": 1, "name": "Agropecuario", "colorTheme": "green"},
+        "competences": [{"name": "Cultivo"}],
+        "catalogs": [],
+        "storages": [],
+        "videos": [],
+        "inscriptions": [],
+    }
+
+
 def _netacad_card(
     slug: str,
     title: str,
@@ -519,6 +546,72 @@ def test_openlearn_individual_course_does_not_fetch_sitemaps(
     assert courses[0].access_type is AccessType.free_no_certificate
     assert course_route.call_count == 1
     assert sitemap_route.call_count == 0
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        [_aprende_live_item()],
+        {"courses": [_aprende_live_item()]},
+        {"data": [_aprende_live_item()]},
+        {"items": [_aprende_live_item()]},
+    ],
+)
+def test_aprende_accepts_live_root_list_and_container_shapes(
+    monkeypatch: pytest.MonkeyPatch,
+    payload: Any,
+) -> None:
+    monkeypatch.setattr(config, "COURTESY_DELAY", 0.0)
+
+    with respx.mock:
+        route = respx.get(_APRENDE_CATALOG_URL).mock(
+            return_value=httpx.Response(200, json=payload)
+        )
+        courses = list(AprendeProvider().scrape(AprendeProvider.default_url))
+
+    assert len(courses) == 1
+    course = courses[0]
+    assert course.name == "Jardinero a gran escala"
+    assert course.description is not None
+    assert len(course.description) >= 20
+    assert "<p>" not in course.description
+    assert course.url == "https://aprende.org/cursos/view/20"
+    assert course.canonical_url == "https://aprende.org/cursos/view/20"
+    assert course.in_language == "es"
+    assert course.time_required is None
+    assert course.keywords is not None
+    assert "jardinería" in course.keywords
+    assert "Cultivo" in course.keywords
+    assert route.call_count == 1
+
+
+@pytest.mark.parametrize(
+    ("status_code", "body", "error"),
+    [
+        (403, "Just a moment...", "HTTP error 403"),
+        (200, "<html><title>Just a moment...</title></html>", "anti-bot challenge"),
+    ],
+)
+def test_openlearn_reports_waf_challenge_without_browser_bypass(
+    monkeypatch: pytest.MonkeyPatch,
+    status_code: int,
+    body: str,
+    error: str,
+) -> None:
+    monkeypatch.setattr(config, "COURTESY_DELAY", 0.0)
+
+    def forbidden_browser_fallback(*args: Any, **kwargs: Any) -> None:
+        raise AssertionError("OpenLearn WAF responses must not trigger browser bypass")
+
+    monkeypatch.setattr(Crawler, "open_page", forbidden_browser_fallback)
+    with respx.mock:
+        sitemap_route = respx.get(OpenLearnProvider.course_sitemap_url).mock(
+            return_value=httpx.Response(status_code, text=body)
+        )
+        with pytest.raises(NetworkError, match=error):
+            list(OpenLearnProvider().scrape(OpenLearnProvider.default_url))
+
+    assert sitemap_route.call_count == 1
 
 
 def test_aprende_maps_catalog_course_and_uses_repository_user_agent(

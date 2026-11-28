@@ -58,7 +58,7 @@ Cursodex es un catálogo académico abierto, semántico e interoperable que agre
 El repositorio ha superado los **Pasos 1, 2, 3 y 4A–4C**, con validación de pruebas de sistema operativo, lint y tipado:
 
 * **Gestión de Entorno y Gobernanza (`pyproject.toml`, `uv.lock`):**
-  * Entorno totalmente gestionado por `uv` (`link-mode = "copy"`), con paquete instalable y versión de release `0.4.1`.
+  * Entorno totalmente gestionado por `uv` (`link-mode = "copy"`), con paquete instalable y versión de release `0.4.2`.
   * Dependencias fijadas y reproducibles para HTTP (`httpx`, `playwright`), extracción (`extruct`, `beautifulsoup4`, `lxml`, `lxml-html-clean`, `html5lib`), modelo (`pydantic`, `pyyaml`) y CLI (`typer`, `click`, `typing-extensions`).
   * Dependencias de desarrollo completas (`pytest`, `pytest-httpx`, `respx`, `ruff`, `mypy`).
 
@@ -146,8 +146,8 @@ El Paso 4 completa los adaptadores de proveedores reales y la infraestructura se
 | Proveedor | Estrategia activa | Reglas de extracción relevantes |
 |---|---|---|
 | **Microsoft Learn** (`ms_learn.py`) | API REST de catálogo | `learningPaths` por defecto; `modules` solo con `--enable-modules`. La categoría se prioriza por `subjects`, `products`, `roles` y, finalmente, título; los slugs pasan a etiquetas limpias. |
-| **OpenLearn** (`openlearn.py`) | Sitemap de cursos `.xml.gz`, índice XML y catálogo paginado de respaldo | Una ficha individual se procesa directamente. En catálogo, las fichas pasan por `extruct` y luego OpenGraph/DOM; el certificado requiere evidencia explícita en el HTML. |
-| **Aprende.org** (`aprende.py`) | API JSON pública con `Crawler` | Detalle consultado perezosamente solo para los cursos que se emitirán; descripción ausente permanece `None`. HTTP/JSON inválidos se reportan como errores técnicos. |
+| **OpenLearn** (`openlearn.py`) | Sitemap de cursos `.xml.gz`, índice XML y catálogo paginado de respaldo | Una ficha individual se procesa directamente. En catálogo, las fichas pasan por `extruct` y luego OpenGraph/DOM; el certificado requiere evidencia explícita en el HTML. Los bloqueos 403/desafíos WAF se reportan sin intentar eludirlos; los 503 prueban las alternativas HTTP documentadas. |
+| **Aprende.org** (`aprende.py`) | API JSON pública con `Crawler` | Acepta listas raíz y contenedores `courses`, `data` e `items`; detalle perezoso para descripciones ausentes o menores de 20 caracteres. HTTP/JSON inválidos se reportan como errores técnicos. |
 | **Cisco NetAcad** (`netacad.py`) | Playwright sobre catálogo SPA | Espera los enlaces renderizados y emite solo tarjetas con `Price: Free` o `Gratis`; no consulta `cperf.netacad.com`. |
 
 HubSpot Academy se retiró a `legacy/` después de que el sondeo confirmara que su sitemap ya no publicaba rutas `/courses/` y la shell HTML española carecía de datos estáticos de curso.

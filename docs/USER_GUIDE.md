@@ -1,6 +1,6 @@
 # Guía de usuario y operación
 
-Guía práctica para ejecutar Cursodex Extractor v0.4.1, revisar sus resultados y prepararlos para la curaduría en Omeka S. El extractor solo indexa metadatos y enlaza al proveedor: no descarga ni aloja el contenido del curso.
+Guía práctica para ejecutar Cursodex Extractor v0.4.2, revisar sus resultados y prepararlos para la curaduría en Omeka S. El extractor solo indexa metadatos y enlaza al proveedor: no descarga ni aloja el contenido del curso.
 
 ## 1. Instalación desde cero
 
@@ -246,6 +246,8 @@ Los marcos europeos JRC son complementarios a CINE-F: DigComp 2.2 (competencia d
 | Playwright indica que falta Chromium | El navegador de automatización no está instalado en ese entorno | Ejecuta `uv run playwright install chromium` y vuelve a intentar |
 | Código `2` y salida `[]` | El catálogo no devolvió cursos válidos o cambió su estructura | Lee `run_summary`, comprueba proveedor/URL y confirma manualmente si la página cambió |
 | HTTP `401` o `403` | API requiere autorización, bloqueo del proveedor o WAF | Comprueba disponibilidad y condiciones de uso; respeta el bloqueo y no intentes evadir controles |
+| OpenLearn devuelve `403` o página de desafío | El proveedor o su WAF bloqueó la petición del crawler | La extracción se detiene y registra el error; solicita acceso autorizado o usa una fuente/API aprobada por OpenLearn |
+| OpenLearn devuelve `503` | Sitemap/servidor temporalmente no disponible | Se prueban las alternativas HTTP documentadas; si siguen indisponibles, revisa el error y vuelve a intentar más tarde |
 | Timeout o error de red | Conectividad inestable, proveedor lento o timeout demasiado corto | Reintenta más tarde; si procede, aumenta `HTTP_TIMEOUT` de forma moderada |
 | JSON o CSV aparece mezclado con logs | Se capturó `stderr` junto con `stdout` | Separa canales (`> datos 2> logs`); no uses `2>&1` al guardar datos estructurados |
 | Tildes o caracteres dañados al abrir CSV en Windows | La aplicación de hojas de cálculo detectó otra codificación | Importa el archivo explícitamente como UTF-8; el CSV se genera sin BOM |

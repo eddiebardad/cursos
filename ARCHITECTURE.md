@@ -1,6 +1,6 @@
 # ARCHITECTURE.md — Cursodex Extractor
 
-> **Versión:** 0.4.1 · **Taxonomía canónica CINE-F ampliada**
+> **Versión:** 0.4.2 · **Taxonomía canónica CINE-F ampliada**
 > Documento de referencia permanente para el repositorio `cursos`.  
 > Cualquier cambio arquitectónico debe reflejarse aquí antes de implementarse.
 
@@ -398,9 +398,10 @@ MAX_RESULTS      = 0           # variable declarada; el CLI limita ejecuciones c
 - Intenta el sitemap de cursos comprimido y usa la paginación del catálogo como respaldo.
 - Las fichas probadas no exponen necesariamente `schema:Course`; se combina OpenGraph con DOM para nivel, duración, tema e idioma.
 - Solo se declara credencial gratuita cuando la ficha menciona explícitamente una *Free statement of participation* o *free digital badge*.
+- Si HTTP devuelve 403 o el sitemap contiene un desafío Cloudflare, se detiene y reporta el bloqueo; no automatiza la evasión del WAF. Un 503 permite probar las alternativas HTTP documentadas.
 
 **Aprende.org (`aprende.py`):**
-- Usa `Crawler` y la API JSON; consulta detalles únicamente para los cursos sin descripción que se van a emitir. Un detalle sin descripción se conserva honestamente como `None`.
+- Usa `Crawler` y acepta la lista raíz vigente o contenedores `courses`, `data` e `items`; consulta detalles solo para cursos que se van a emitir con descripción ausente o menor de 20 caracteres. Un detalle sin descripción suficiente se conserva honestamente y queda sujeto a revisión.
 
 **Cisco NetAcad (`netacad.py`):**
 - Renderiza por defecto el catálogo SPA, descarta tarjetas sin precio gratuito explícito y no consulta endpoints bloqueados de detalle.

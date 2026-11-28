@@ -1,7 +1,7 @@
 """
 config.py
 ==============================================================================
-Configuración centralizada de Cursodex (v0.4.1).
+Configuración centralizada de Cursodex (v0.4.2).
 Valores por defecto respetando los acuerdos arquitectónicos y sobreescribibles
 mediante variables de entorno.
 ==============================================================================

@@ -1,4 +1,4 @@
-# Cursodex Extractor — Guardrails Permanentes del Agente (v0.4.1)
+# Cursodex Extractor — Guardrails Permanentes del Agente (v0.4.2)
 
 > Este archivo define las reglas inquebrantables para cualquier agente de IA
 > que trabaje sobre el repositorio `cursos` (cursodex-extractor).

@@ -18,16 +18,18 @@ flowchart LR
 
 En n8n, `canonical_url` identifica el curso y `content_hash` permite detectar cambios descriptivos. Las actualizaciones siguen **Read-Merge-PUT**: leer el recurso, combinar los campos y enviar el recurso completo mediante `PUT`. Los datos nunca se escriben directamente en Omeka S desde este CLI.
 
-## Proveedores activos en v0.4.1
+## Proveedores activos en v0.4.2
 
 | Identificador | Fuente y motor | Idioma predominante | Política de acceso |
 |---|---|---|---|
 | `ms_learn` | Microsoft Learn; API JSON, `learningPaths` por defecto | Inglés y español | Catálogo gratuito; marca credencial según los datos del proveedor |
 | `openlearn` | The Open University; sitemap `.xml.gz`, `extruct` y DOM de fichas | Inglés | Certificado/insignia solo si la ficha declara evidencia gratuita explícita |
-| `aprende` | Aprende.org; API JSON y consulta perezosa de detalle | Español | Cursos gratuitos con credencial según el proveedor |
+| `aprende` | Aprende.org; API JSON (lista raíz o contenedores) y detalle perezoso | Español | Cursos gratuitos con credencial según el proveedor |
 | `netacad` | Cisco Networking Academy; SPA con Playwright | Inglés y otros | Solo acepta tarjetas con precio gratuito explícito; credencial solo con evidencia explícita |
 
 HubSpot Academy no forma parte del catálogo activo. Se retiró tras comprobar que su sitemap ya no publicaba rutas `/courses/` y que la página observada era una shell SPA sin datos de curso aprovechables en HTML estático.
+
+OpenLearn usa HTTP directo para sitemaps y páginas. Si el proveedor devuelve 403 o un desafío antibot, el extractor registra el bloqueo y no intenta sortearlo automáticamente; un 503 permite probar las alternativas HTTP documentadas.
 
 ## Inicio rápido
 

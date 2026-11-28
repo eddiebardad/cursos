@@ -74,6 +74,12 @@ class OpenLearnProvider(ProviderBase):
     def _parse_sitemap_xml(payload: bytes) -> ET.Element:
         if payload.startswith(b"\x1f\x8b"):
             payload = gzip.decompress(payload)
+        response_text = payload[:4096].decode("utf-8", errors="ignore").casefold()
+        if "just a moment" in response_text or "cf-mitigated" in response_text:
+            raise NetworkError(
+                "OpenLearn returned an anti-bot challenge. Automatic challenge "
+                "bypass is disabled; request authorized access from the provider."
+            )
         try:
             return ET.fromstring(payload)
         except ET.ParseError as exc:
@@ -141,7 +147,15 @@ class OpenLearnProvider(ProviderBase):
         for sitemap_url in sitemap_urls:
             try:
                 course_urls = cls._course_urls_from_sitemap(crawler, sitemap_url)
-            except (NetworkError, ParsingError, OSError, EOFError) as exc:
+            except NetworkError as exc:
+                logger.warning("Could not read OpenLearn sitemap %s: %s", sitemap_url, exc)
+                if (
+                    "HTTP error 403" in str(exc)
+                    or "anti-bot challenge" in str(exc)
+                ):
+                    raise
+                continue
+            except (ParsingError, OSError, EOFError) as exc:
                 logger.warning("Could not read OpenLearn sitemap %s: %s", sitemap_url, exc)
                 continue
             if course_urls:

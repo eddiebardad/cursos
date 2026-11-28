@@ -1,6 +1,6 @@
 # Taxonomía normativa y guía semántica de Cursodex
 
-**Versión de referencia:** Cursodex Extractor `v0.4.1`
+**Versión de referencia:** Cursodex Extractor `v0.4.2`
 
 **Fuentes de verdad del comportamiento:** [`mappings/vocab_map.yml`](../mappings/vocab_map.yml) y [`schemas/models.py`](../schemas/models.py).
 **Propósito:** catalogación consistente, auditoría de resultados y base de conocimiento para el futuro generador de rutas `schema:ItemList` (Hito 4).
