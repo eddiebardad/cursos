@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Manual visual de Cursodex Extractor v0.4.2: arquitectura, proveedores, contratos semánticos y operación.">
-  <title>Cursodex Extractor · Manual visual v0.4.2</title>
+  <meta name="description" content="Manual visual de Cursodex Extractor v0.5.0: arquitectura modular, proveedores, contratos semánticos y operación.">
+  <title>Cursodex Extractor · Manual visual v0.5.0</title>
   <style>
     :root {
       color-scheme: light dark;
@@ -207,7 +207,7 @@
 <body>
   <div class="layout">
     <aside class="sidebar" aria-label="Navegación del manual">
-      <a class="brand" href="#inicio">CURSODEX<span>Manual visual · v0.4.2</span></a>
+      <a class="brand" href="#inicio">CURSODEX<span>Manual visual · v0.5.0</span></a>
       <nav>
         <a href="#arquitectura">Arquitectura</a>
         <a href="#proveedores">Proveedores</a>
@@ -223,7 +223,7 @@
 
     <main>
       <header class="hero" id="inicio">
-        <div class="eyebrow">Cursodex Extractor · versión estable 0.4.2</div>
+        <div class="eyebrow">Cursodex Extractor · versión estable 0.5.0</div>
         <h1>Un catálogo abierto.<br>Datos que se entienden.</h1>
         <p class="lead">
           Manual ilustrado del CLI stateless que extrae metadatos de cursos gratuitos,
@@ -315,6 +315,8 @@
           </article>
         </div>
         <p class="notice warning"><strong>Filtro anti-falsos gratis:</strong> no se acepta acceso obligatorio de pago ni una prueba temporal como curso gratuito.</p>
+        <p>El manifiesto <code>mappings/providers.yml</code> centraliza IDs, hosts, límites y estrategias. <code>StrategyRunner</code> ordena los drivers y evita repetir peticiones a un host bloqueado; <code>BatchQualityGate</code> exige solo metadatos nucleares. La descripción puede faltar sin descartar el curso. No se automatiza la evasión de desafíos WAF.</p>
+        <p>El driver <code>sitemap_jsonld</code> procesa sitemaps XML/XML.GZ (incluidos índices) y extrae cursos JSON-LD, incluso dentro de <code>@graph</code>. Las categorías se pueden rescatar con inferencia local ponderada después de las señales del proveedor y del detalle perezoso de Aprende.</p>
       </section>
 
       <section id="unix">
@@ -418,6 +420,13 @@ uv run cursodex run -p aprende --limit 5 --output -
 uv run cursodex run -p netacad --limit 5 --output -</code></pre>
         </details>
         <details>
+          <summary>Inventario y ejecución conjunta</summary>
+          <pre><code>uv run cursodex providers
+uv run cursodex providers --format json
+uv run cursodex run --provider all --skip-waf-sensitive --limit 20 --output -</code></pre>
+          <p>La lista procede del manifiesto. El filtro omite proveedores marcados como sensibles a WAF, actualmente OpenLearn.</p>
+        </details>
+        <details>
           <summary>CSV para importación o JSON-LD a archivo</summary>
           <pre><code>uv run cursodex run -p aprende --limit 100 --output cursos.csv --format csv
 uv run cursodex run -p openlearn --limit 20 --output cursos.jsonld</code></pre>
@@ -439,7 +448,7 @@ uv run cursodex run --url "https://example.org/catalog" --enable-bfs --max-pages
             <thead><tr><th>Opción</th><th>Propósito</th></tr></thead>
             <tbody>
               <tr><td><code>--url, -u</code></td><td>URL de catálogo o curso; el dominio detecta el proveedor.</td></tr>
-              <tr><td><code>--provider, -p</code></td><td><code>ms_learn</code>, <code>openlearn</code>, <code>aprende</code> o <code>netacad</code>.</td></tr>
+              <tr><td><code>--provider, -p</code></td><td>Un ID del manifiesto o <code>all</code>.</td></tr>
               <tr><td><code>--output, -o</code></td><td>Archivo de destino o <code>-</code> para stdout (JSON-LD por defecto).</td></tr>
               <tr><td><code>--format, -f</code></td><td><code>csv</code> o <code>jsonld</code>; si se omite, se infiere y <code>-</code> usa JSON-LD por defecto.</td></tr>
               <tr><td><code>--limit, -l</code></td><td>Máximo de cursos válidos; 0 no limita.</td></tr>
@@ -447,6 +456,7 @@ uv run cursodex run --url "https://example.org/catalog" --enable-bfs --max-pages
               <tr><td><code>--enable-bfs</code></td><td>Activa el rastreo BFS genérico.</td></tr>
               <tr><td><code>--enable-modules</code></td><td>Añade módulos de Microsoft Learn a learning paths.</td></tr>
               <tr><td><code>--max-pages</code></td><td>Máximo de páginas de BFS; por defecto 100.</td></tr>
+              <tr><td><code>--skip-waf-sensitive</code></td><td>Omite proveedores sensibles a WAF junto con <code>--provider all</code>.</td></tr>
             </tbody>
           </table>
         </div>
@@ -580,7 +590,7 @@ uv run cursodex run --url "https://example.org/catalog" --enable-bfs --max-pages
       </section>
 
       <footer>
-        <p>Manual autocontenido de Cursodex Extractor v0.4.2. No necesita JavaScript ni recursos externos para navegar, imprimir o guardarse como PDF.</p>
+        <p>Manual autocontenido de Cursodex Extractor v0.5.0. No necesita JavaScript ni recursos externos para navegar, imprimir o guardarse como PDF.</p>
         <p><a href="../README.md">README</a> · <a href="../ARCHITECTURE.md">Arquitectura</a> · <a href="../PLAN.md">Plan técnico</a> · <a href="USER_GUIDE.md">Guía de usuario</a> · <a href="TAXONOMY.md">Taxonomía</a></p>
       </footer>
     </main>

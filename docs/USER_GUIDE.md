@@ -1,6 +1,6 @@
 # Guía de usuario y operación
 
-Guía práctica para ejecutar Cursodex Extractor v0.4.2, revisar sus resultados y prepararlos para la curaduría en Omeka S. El extractor solo indexa metadatos y enlaza al proveedor: no descarga ni aloja el contenido del curso.
+Guía práctica para ejecutar Cursodex Extractor v0.5.0, revisar sus resultados y prepararlos para la curaduría en Omeka S. El extractor solo indexa metadatos y enlaza al proveedor: no descarga ni aloja el contenido del curso.
 
 ## 1. Instalación desde cero
 
@@ -66,7 +66,14 @@ COURTESY_DELAY=1.0 HTTP_TIMEOUT=30 \
 
 ## 2. Recetario práctico
 
-Los cuatro proveedores activos son `ms_learn`, `openlearn`, `aprende` y `netacad`. Si se alcanza un fallo técnico, el proceso termina con código `1`; si la consulta funciona pero no encuentra cursos, termina con código `2`.
+Los proveedores activos y sus estrategias se mantienen en [`mappings/providers.yml`](../mappings/providers.yml). Consulta el inventario desde el CLI:
+
+```bash
+uv run cursodex providers
+uv run cursodex providers --format json
+```
+
+Para recorrer todas las fuentes en el orden declarado, usa `--provider all`. Si el worker de origen es sensible a bloqueos, `--skip-waf-sensitive` omite los proveedores marcados para WAF, actualmente OpenLearn. Un fallo técnico agotadas las estrategias termina con código `1`; si todas terminan limpiamente sin cursos, el código sigue siendo `2`.
 
 ### Prueba rápida por proveedor
 
@@ -75,6 +82,7 @@ uv run cursodex run -p ms_learn --limit 5 --output -
 uv run cursodex run -p openlearn --limit 5 --output -
 uv run cursodex run -p aprende --limit 5 --output -
 uv run cursodex run -p netacad --limit 5 --output -
+uv run cursodex run --provider all --skip-waf-sensitive --limit 20 --output -
 ```
 
 Las órdenes imprimen un array JSON-LD por `stdout`; los mensajes y `run_summary` permanecen en `stderr`. NetAcad usa Playwright por defecto; no requiere `--render`.
@@ -143,6 +151,10 @@ El array JSON-LD puede ser `[]` si no se obtuvo ningún curso. En ese caso revis
 ```bash
 uv run cursodex run -p ms_learn --enable-modules --limit 10 --output -
 ```
+
+`StrategyRunner` prueba estrategias declaradas en orden; ante un 403/desafío no vuelve a solicitar el mismo host ni intenta sortear el WAF con un navegador. `ResponseGuard` distingue fallos de formato upstream y estados HTTP. `BatchQualityGate` requiere título, URL HTTPS de un host permitido, proveedor, acceso gratuito e idioma válido; descripción, categoría, nivel y duración pueden faltar sin invalidar la ficha.
+
+El driver reutilizable `sitemap_jsonld` admite sitemaps XML, XML.GZ e índices, y extrae `schema:Course` desde JSON-LD, incluidos bloques `@graph`. Para Aprende, el detalle del curso se consulta solo si falta descripción o la categoría del listado queda pendiente; si el detalle no responde, se conserva el registro del catálogo.
 
 **Procesar una ficha individual** pasando la URL concreta del curso. El dominio permite seleccionar el adaptador:
 

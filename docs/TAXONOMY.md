@@ -1,11 +1,13 @@
 # Taxonomía normativa y guía semántica de Cursodex
 
-**Versión de referencia:** Cursodex Extractor `v0.4.2`
+**Versión de referencia:** Cursodex Extractor `v0.5.0`
 
 **Fuentes de verdad del comportamiento:** [`mappings/vocab_map.yml`](../mappings/vocab_map.yml) y [`schemas/models.py`](../schemas/models.py).
 **Propósito:** catalogación consistente, auditoría de resultados y base de conocimiento para el futuro generador de rutas `schema:ItemList` (Hito 4).
 
 Este manual distingue el vocabulario que el software aplica hoy de la interpretación disciplinar que guía a curadores y a sistemas de recomendación. Los disparadores enumerados por categoría son los literales del YAML vigente; no se deben tratar como un clasificador semántico entrenado ni como una garantía de que cualquier frase coincidente pertenezca a la disciplina.
+
+La extracción usa `mappings/providers.yml` como manifiesto de estrategias y hosts permitidos. `StrategyRunner` ejecuta drivers en orden, mientras `BatchQualityGate` valida los metadatos nucleares sin convertir la ausencia de descripción, categoría, nivel o duración en motivo de descarte. La inferencia local de categoría es el último escalón y conserva `Pendiente_Categoria` ante evidencia ambigua.
 
 ## 1. Arquitectura Semántica de Catalogación en Cursodex
 
@@ -196,7 +198,7 @@ Redes, administración de sistemas, cloud computing, ciberseguridad, seguridad d
 - Implementación de software sin foco de redes, operaciones o seguridad → `#03`.
 - Operación de sistemas de escritorio, Intune, soporte técnico y administración de endpoints → `#06`; en especial los patrones de dispositivo y producto más específicos vencen a señales genéricas de negocio o rol.
 - El nombre de un rol (`administrator`, `business owner`, `technology manager`) no debe dominar un título o señal de producto más específica. Microsoft Learn evalúa conjuntamente `title + subjects + products` mediante la coincidencia léxica más larga de `resolve_category()` y recurre a `roles` solo si esas señales de contenido no clasifican.
-- `Course` clasifica con la pista de categoría, keywords y título; no busca sinónimos en la descripción. Microsoft Learn aplica la misma prioridad por especificidad al título, las materias y los productos; los roles son respaldo, no evidencia temática preferente.
+- `Course` aplica primero la pista de categoría, keywords y título. Solo si no obtiene categoría, usa como respaldo léxico el slug de la URL y los primeros 300 caracteres de la descripción con menor peso; el empate entre áreas distintas permanece pendiente.
 - Gobierno o estrategia empresarial de servicios cloud sin tema técnico puede pertenecer a `#07`; evita clasificar por el nombre del producto sin revisar el objetivo del curso.
 - Sostenibilidad de centros de datos → `#10` solo cuando el objeto de estudio sea sostenibilidad/impacto ambiental, no la infraestructura en sí.
 
@@ -204,7 +206,7 @@ Redes, administración de sistemas, cloud computing, ciberseguridad, seguridad d
 
 | Grupo | Literales |
 |---|---|
-| ES | `ciberseguridad`; `seguridad informatica`; `computacion en la nube`; `redes`; `redes de computadoras`; `seguridad de redes`; `hacking etico`; `criptografia`; `administracion de sistemas`; `administracion de redes`; `internet de las cosas`; `migracion a azure`; `migracion a la nube`; `observabilidad cloud`; `solucionar problemas de aplicaciones en azure`; `aplicaciones en azure` |
+| ES | `ciberseguridad`; `seguridad informatica`; `computacion en la nube`; `redes`; `redes de computadoras`; `seguridad de redes`; `hacking etico`; `criptografia`; `administracion de sistemas`; `administracion de redes`; `internet de las cosas`; `migracion a azure`; `migracion a la nube`; `microservicios en la nube`; `arquitectura de microservicios en la nube`; `observabilidad cloud`; `solucionar problemas de aplicaciones en azure`; `aplicaciones en azure` |
 | EN | `cybersecurity`; `information security`; `cloud computing`; `networking`; `computer networks`; `network security`; `ethical hacking`; `cryptography`; `cloud migration`; `insider risk` |
 | Técnico / productos | `cloud`; `azure`; `aws`; `amazon web services`; `google cloud`; `gcp`; `cisco`; `ccna`; `ccnp`; `pentesting`; `soc`; `firewall`; `vpn`; `kubernetes`; `docker`; `devops`; `sysadmin`; `linux`; `iot`; `cisco packet tracer`; `packet tracer`; `purview`; `microsoft purview`; `azure monitor`; `application insights`; `entra`; `defender` |
 
@@ -340,7 +342,7 @@ Fundamentos de informática, computación, tecnologías de información, sistema
 - No clasificar como ofimática (`#05`) la administración/soporte de Windows, Intune o endpoints: esos temas técnicos quedan en `#06`. El uso básico de Word, Excel y Microsoft 365 continúa en `#05`.
 - Infraestructura cloud, redes, ciberseguridad, Purview y observabilidad cloud → `#02`.
 - `administracion de sistemas` está configurado tanto en `#02` como aquí. Al empatar su longitud, el orden YAML conserva la resolución en `#02`; una señal de escritorio/endpoint más específica como `windows 11 pro` o `endpoint management` resuelve `#06`.
-- La descripción no participa en el matching de categoría del modelo. Las señales deben aparecer en título, keywords o pista; en Microsoft Learn una señal de subject/product más específica evita que una coincidencia secundaria de rol clasifique antes.
+- La descripción no participa en la clasificación primaria. Solo aporta evidencia de bajo peso en la inferencia final cuando pista, título y keywords no bastan; el slug canónico aporta evidencia intermedia. Se aplican fronteras de palabra y reglas explícitas de desambiguación para lenguajes de programación.
 - No usar esta categoría solo porque el curso se imparta mediante tecnología; debe tratar de TIC como materia.
 - `IT`, `tic`, `technology` e `informatica` son disparadores cortos o amplios: revisar siempre el texto completo y el orden de especificidad.
 

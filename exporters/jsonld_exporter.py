@@ -11,7 +11,7 @@ import sys
 from collections.abc import Iterable
 from typing import Any
 
-from exporters.base import BaseExporter
+from exporters.base import BaseExporter, deduplicate_courses
 from schemas.models import Course
 from utils.logger import get_logger
 
@@ -24,6 +24,11 @@ def course_to_omeka_jsonld(course: Course) -> dict[str, Any]:
     con la API REST de Omeka S v4+ (ARCHITECTURE.md §6.1).
     """
     item: dict[str, Any] = {
+        "@context": {
+            "o": "http://omeka.org/s/vocabs/o#",
+            "schema": "https://schema.org/",
+            "dcterms": "http://purl.org/dc/terms/",
+        },
         "@type": ["o:Item", "schema:Course"],
         "o:is_public": False,
     }
@@ -146,7 +151,7 @@ def course_to_omeka_jsonld(course: Course) -> dict[str, Any]:
 
 class JSONLDExporter(BaseExporter):
     def export(self, courses: Iterable[Course], destination: str) -> None:
-        course_list = list(courses)
+        course_list = deduplicate_courses(courses)
         items = [course_to_omeka_jsonld(c) for c in course_list]
 
         if destination == "-":

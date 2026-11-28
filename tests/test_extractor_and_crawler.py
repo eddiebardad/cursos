@@ -211,6 +211,20 @@ def test_dom_fallback_requires_real_course_content_and_honors_guardrails() -> No
     assert parse_course_page("<p>Sin encabezado ni descripción</p>", "https://academy.example/course") is None
 
 
+def test_dom_fallback_preserves_course_with_missing_or_short_description() -> None:
+    html = """
+    <html lang="en">
+      <body><main><h1>Course with sparse metadata</h1><p>Brief.</p></main></body>
+    </html>
+    """
+
+    course = parse_course_page(html, "https://academy.example/courses/sparse")
+
+    assert course is not None
+    assert course.description is None
+    assert course.needs_review is True
+
+
 def test_defaults_only_fill_values_missing_from_structured_course() -> None:
     html = """
     <script type="application/ld+json">

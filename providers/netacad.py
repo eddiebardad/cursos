@@ -32,6 +32,7 @@ _COURSE_LINK_WAIT = """() => [...document.querySelectorAll('a[href]')].some(anch
 class NetacadProvider(ProviderBase):
     provider_name = "Netacad"
     provider_aliases: ClassVar[tuple[str, ...]] = ("netacad", "cisco", "cisco netacad")
+    allowed_hosts: ClassVar[tuple[str, ...]] = ("netacad.com", "www.netacad.com")
     default_url = "https://www.netacad.com/courses/all-courses"
 
     @classmethod
@@ -234,14 +235,22 @@ class NetacadProvider(ProviderBase):
         target_url = url or _CATALOG_URL
         with Crawler(render=True) as crawler:
             if self._is_course_detail_url(target_url):
-                with crawler.open_page(target_url) as page:
+                with crawler.open_page(
+                    target_url,
+                    allowed_hosts=self.allowed_hosts,
+                    reject_login_path=True,
+                ) as page:
                     html = page.content()
                 course = self._course_from_detail(html, target_url)
                 if course is not None:
                     yield course
                 return
 
-            with crawler.open_page(target_url) as page:
+            with crawler.open_page(
+                target_url,
+                allowed_hosts=self.allowed_hosts,
+                reject_login_path=True,
+            ) as page:
                 try:
                     page.wait_for_function(_COURSE_LINK_WAIT, timeout=15_000)
                 except PlaywrightTimeoutError:

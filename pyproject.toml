@@ -1,6 +1,6 @@
 [project]
 name = "cursodex-extractor"
-version = "0.4.2"
+version = "0.5.0"
 description = "CLI sin estado para extraer y normalizar cursos gratuitos con JSON-LD/CSV para Omeka S; stateless course extractor with Schema.org and Dublin Core exports."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -17,6 +17,7 @@ dependencies = [
     "beautifulsoup4>=4.12.0",
     "lxml>=5.0.0",
     "lxml-html-clean>=0.4.0",   # requerido por extruct en tiempo de ejecución con lxml>=5
+    "defusedxml>=0.7.1",        # parsing XML seguro para sitemaps no confiables
     "html5lib>=1.1",
     "extruct>=0.16.0",          # extracción primaria de JSON-LD, Microdata, OpenGraph, RDFa
 
@@ -59,6 +60,7 @@ dev = [
     "providers",
     "schemas",
     "mappings/vocab_map.yml",
+    "mappings/providers.yml",
 ]
 
 [tool.pytest.ini_options]

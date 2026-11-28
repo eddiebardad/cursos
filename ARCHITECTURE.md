@@ -1,6 +1,6 @@
 # ARCHITECTURE.md — Cursodex Extractor
 
-> **Versión:** 0.4.2 · **Taxonomía canónica CINE-F ampliada**
+> **Versión:** 0.5.0 · **Drivers modulares y ejecución declarativa**
 > Documento de referencia permanente para el repositorio `cursos`.  
 > Cualquier cambio arquitectónico debe reflejarse aquí antes de implementarse.
 
@@ -67,9 +67,13 @@ cursos/
 │
 ├── core/
 │   ├── crawler.py           # Clase Crawler (httpx + Playwright) y crawl_site() BFS
+│   ├── drivers.py           # Drivers reutilizables y sitemap_jsonld
 │   ├── extractor.py         # Integración extruct (JSON-LD, Microdata, OpenGraph, RDFa)
+│   ├── manifest.py          # Validación Pydantic de mappings/providers.yml
 │   ├── parser.py            # Orquestador: extruct primario + bs4 fallback
-│   └── exceptions.py        # NetworkError, ParsingError, ScraperException
+│   ├── quality.py           # BatchQualityGate: metadatos obligatorios y poda
+│   ├── strategy.py          # StrategyRunner y fallback por proveedor
+│   └── exceptions.py        # Errores HTTP, formato, calidad y scraping
 │
 ├── providers/
 │   ├── base.py              # ProviderBase ABC + registro automático
@@ -84,6 +88,7 @@ cursos/
 │   └── __init__.py
 │
 ├── mappings/
+│   ├── providers.yml        # Manifiesto declarativo de proveedores y estrategias
 │   └── vocab_map.yml        # 17 categorías CINE-F/JRC + niveles + idiomas
 │
 ├── exporters/
@@ -99,6 +104,7 @@ cursos/
 ├── tests/
 │   ├── test_exporters_and_cli.py
 │   ├── test_extractor_and_crawler.py
+│   ├── test_core_architecture.py
 │   ├── test_models.py
 │   └── test_providers.py
 │
@@ -263,6 +269,11 @@ En la API REST de Omeka S v4+:
 ```json
 [
   {
+    "@context": {
+      "o": "http://omeka.org/s/vocabs/o#",
+      "schema": "https://schema.org/",
+      "dcterms": "http://purl.org/dc/terms/"
+    },
     "@type": ["o:Item", "schema:Course"],
     "o:is_public": false,
 
@@ -386,6 +397,20 @@ MAX_RESULTS      = 0           # variable declarada; el CLI limita ejecuciones c
 | 2 | **OpenLearn (The Open University)** | `openlearn.py` | Sitemap `.xml.gz`, `extruct` y fallback OpenGraph/DOM | `https://www.open.edu/openlearn/free-courses/full-catalogue` | Evidencia HTML de credencial; si no, `free_no_certificate` |
 | 3 | **Aprende.org** | `aprende.py` | API JSON pública con detalle perezoso | `https://aprende.org/cursos` | `free_with_certificate` |
 | 4 | **Cisco NetAcad** | `netacad.py` | Playwright SPA; tarjetas filtradas por precio explícito | `https://www.netacad.com/courses/all-courses` | Insignia/certificado explícito; en otro caso `free_no_certificate` |
+
+### 8.1 Manifiesto, drivers y ejecución de estrategias
+
+`mappings/providers.yml` es la fuente de verdad para IDs, nombres canónicos, URLs base, hosts permitidos, idioma predeterminado, límites recomendados, requisitos de navegador, sensibilidad WAF y estrategias ordenadas. `core/manifest.py` valida cada entrada con Pydantic v2; el CLI deriva de este manifiesto `cursodex providers`, los nombres admitidos y la ejecución de `--provider all`.
+
+`core/drivers.py` registra los drivers activos y el driver genérico `sitemap_jsonld`. Este último acepta sitemaps XML/XML.GZ, índices y filtros de URL, y extrae `schema:Course` desde JSON-LD, incluso dentro de `@graph`. `core/strategy.py::StrategyRunner` ejecuta las estrategias secuencialmente, conserva el código de salida `2` para resultados vacíos limpios y evita repetir peticiones al host que devolvió un 403/desafío. `--skip-waf-sensitive` omite proveedores marcados como sensibles al ejecutar todos.
+
+`core/crawler.py::ResponseGuard` falla rápido ante estados definitivos y desafíos, aplica reintentos limitados a fallos transitorios y rechaza HTML cuando se esperaba JSON/XML. `core/quality.py::BatchQualityGate` valida título, URL/host, proveedor, gratuidad e idioma; descripción, categoría, nivel y duración son datos descriptivos opcionales y no eliminan cursos válidos.
+
+El crawler acepta solo HTTPS, rechaza credenciales, destinos locales o direcciones IP no públicas, valida cada salto de redirección y limita respuestas a 25 MiB. Los sitemaps usan `defusedxml`; gzip se lee con límite descomprimido y los índices tienen límites de profundidad y cantidad. Las fichas duplicadas por `canonical_url` se eliminan antes de exportar; CSV elimina controles y saltos de línea rotos.
+
+La resolución categórica conserva primero las señales nativas del proveedor. Aprende solicita el detalle si falta descripción o la categoría del listado queda pendiente. Si sigue sin clasificación, el modelo aplica inferencia léxica local y ponderada sobre título, keywords, slug y descripción; no realiza peticiones dentro del clasificador y mantiene `Pendiente_Categoria` ante empates o ausencia de evidencia.
+
+### 8.2 Notas específicas por proveedor
 
 ### 8.1 Notas específicas por proveedor
 

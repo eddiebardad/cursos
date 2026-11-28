@@ -1,7 +1,7 @@
 """
 cli.py
 ==============================================================================
-Punto de entrada de línea de comandos para Cursodex (v0.4.2).
+Punto de entrada de línea de comandos para Cursodex (v0.5.0).
 
 Cumple estrictamente el contrato Unix:
 1. stdout: reservado para datos estructurados limpios (--output -).
@@ -13,6 +13,8 @@ Cumple estrictamente el contrato Unix:
 ==============================================================================
 """
 
+import json
+import re
 import sys
 import time
 from typing import Annotated
@@ -21,19 +23,75 @@ import click
 import typer
 
 from core.crawler import crawl_site
-from exporters.base import BaseExporter
+from core.manifest import load_provider_manifest
+from core.strategy import StrategyRunner
+from exporters.base import BaseExporter, deduplicate_courses
 from exporters.csv_exporter import CSVExporter
 from exporters.jsonld_exporter import JSONLDExporter
 from providers import get_provider_by_name, get_provider_for_url
+from schemas.models import Course
 from utils.logger import emit_run_summary, get_logger
 
 logger = get_logger(__name__)
+_PROVIDER_MANIFEST = load_provider_manifest()
+
+
+def _provider_choices() -> str:
+    return ", ".join([*_PROVIDER_MANIFEST, "all"])
+
+
+def _normalized_name(value: str) -> str:
+    return re.sub(r"[\s_-]+", "", value).casefold()
+
+
+def _manifest_id_for_provider(
+    provider_name: str,
+    provider_instance: object,
+) -> str | None:
+    names = {
+        _normalized_name(provider_name),
+        _normalized_name(str(getattr(provider_instance, "provider_name", ""))),
+    }
+    aliases = getattr(provider_instance, "provider_aliases", ())
+    names.update(_normalized_name(alias) for alias in aliases)
+    for provider_id, definition in _PROVIDER_MANIFEST.items():
+        if names.intersection(
+            {_normalized_name(provider_id), _normalized_name(definition.name)}
+        ):
+            return provider_id
+    return None
+
+
+def _scrape_all_providers(
+    limit: int,
+    enable_modules: bool,
+    skip_waf_sensitive: bool,
+) -> list[Course]:
+    runner = StrategyRunner(_PROVIDER_MANIFEST)
+    courses: list[Course] = []
+    for provider_id, definition in _PROVIDER_MANIFEST.items():
+        if skip_waf_sensitive and definition.datacenter_waf_sensitive:
+            logger.info("Skipping WAF-sensitive provider: %s", provider_id)
+            continue
+        instance = get_provider_by_name(provider_id)
+        if instance is None:
+            raise RuntimeError(f"No adapter registered for provider {provider_id!r}")
+        remaining = limit - len(courses) if limit > 0 else 0
+        courses.extend(
+            runner.run(
+                provider_id,
+                instance,
+                getattr(instance, "default_url", None) or definition.base_url,
+                limit=remaining,
+                enable_modules=enable_modules,
+            )
+        )
+        if limit > 0 and len(courses) >= limit:
+            return courses[:limit]
+    return courses
 
 app = typer.Typer(
-    help=(
-        "Cursodex Extractor v0.4.2 — extracción sin estado de cursos gratuitos "
-        "(ms_learn, openlearn, aprende, netacad)."
-    ),
+    help=f"Cursodex Extractor v0.5.0 — extracción sin estado de cursos gratuitos ({_provider_choices()}).",
     pretty_exceptions_enable=False,
     add_completion=False,
     rich_markup_mode=None,
@@ -72,15 +130,28 @@ def _execute_scrape(
     enable_bfs: bool,
     enable_modules: bool,
     max_pages: int,
+    skip_waf_sensitive: bool = False,
 ) -> None:
     start_time = time.perf_counter()
     provider_instance = None
     target_url = url
     provider_name: str | None = None
-    courses: list = []
+    courses: list[Course] = []
 
     try:
         # 1. Validación inicial de URL y Provider
+        is_all_providers = bool(provider and provider.casefold() == "all")
+        if is_all_providers and target_url:
+            logger.error("--provider all cannot be combined with --url.")
+            emit_run_summary(
+                provider=provider,
+                url=target_url,
+                courses_extracted=0,
+                needs_review_count=0,
+                exit_code=1,
+                elapsed_seconds=time.perf_counter() - start_time,
+            )
+            raise typer.Exit(code=1)
         if not target_url and not provider:
             sys.stderr.write("Error: Debe especificar al menos una URL (--url / -u) o un proveedor (--provider / -p).\n")
             emit_run_summary(
@@ -94,7 +165,7 @@ def _execute_scrape(
             raise typer.Exit(code=1)
 
         # 2. Resolución del proveedor si fue especificado explícitamente
-        if provider:
+        if provider and not is_all_providers:
             provider_instance = get_provider_by_name(provider)
             if not provider_instance:
                 logger.error(f"No se encontró ningún adaptador registrado con el nombre '{provider}'.")
@@ -125,6 +196,9 @@ def _execute_scrape(
                 raise typer.Exit(code=1)
 
             logger.info(f"Adaptador forzado: {provider_name} | URL: {target_url}")
+        elif is_all_providers:
+            provider_name = "all"
+            logger.info("Ejecutando todos los proveedores declarados en mappings/providers.yml.")
         else:
             # Detección automática por dominio de URL
             provider_instance = get_provider_for_url(target_url)  # type: ignore[arg-type]
@@ -187,16 +261,41 @@ def _execute_scrape(
             raise typer.Exit(code=1) from err
 
         # 5. Ejecución del scraping
-        logger.info(f"Iniciando extracción en {target_url} (límite: {limit if limit > 0 else 'sin límite'})")
+        logger.info(
+            "Iniciando extracción en %s (límite: %s)",
+            target_url or "todos los proveedores",
+            limit if limit > 0 else "sin límite",
+        )
 
-        if provider_instance:
+        if is_all_providers:
+            courses.extend(
+                _scrape_all_providers(
+                    limit,
+                    enable_modules,
+                    skip_waf_sensitive,
+                )
+            )
+        elif provider_instance:
             assert target_url is not None
-            for course in provider_instance.scrape(
-                target_url,
-                render=render,
-                limit=limit,
-                enable_modules=enable_modules,
-            ):
+            manifest_id = _manifest_id_for_provider(provider or "", provider_instance)
+            if manifest_id:
+                extracted = StrategyRunner(_PROVIDER_MANIFEST).run(
+                    manifest_id,
+                    provider_instance,
+                    target_url,
+                    limit=limit,
+                    enable_modules=enable_modules,
+                )
+            else:
+                extracted = list(
+                    provider_instance.scrape(
+                        target_url,
+                        render=render,
+                        limit=limit,
+                        enable_modules=enable_modules,
+                    )
+                )
+            for course in extracted:
                 courses.append(course)
                 if limit > 0 and len(courses) >= limit:
                     break
@@ -211,6 +310,7 @@ def _execute_scrape(
                 )
             )
 
+        courses = deduplicate_courses(courses)
         elapsed = time.perf_counter() - start_time
         needs_review_count = sum(1 for c in courses if c.needs_review)
 
@@ -267,7 +367,7 @@ def run_command(
     ] = None,
     provider: Annotated[
         str | None,
-        typer.Option("--provider", "-p", help="Proveedor: ms_learn, openlearn, aprende o netacad."),
+        typer.Option("--provider", "-p", help=f"Proveedor: {_provider_choices()}."),
     ] = None,
     output: Annotated[
         str,
@@ -297,8 +397,15 @@ def run_command(
         int,
         typer.Option("--max-pages", help="Máximo de páginas para el rastreador BFS genérico."),
     ] = 100,
+    skip_waf_sensitive: Annotated[
+        bool,
+        typer.Option(
+            "--skip-waf-sensitive",
+            help="Omitir proveedores sensibles a WAF cuando --provider all.",
+        ),
+    ] = False,
 ) -> None:
-    """Extrae cursos de ms_learn, openlearn, aprende o netacad y exporta CSV/JSON-LD."""
+    """Extrae cursos de los proveedores declarados y exporta CSV/JSON-LD."""
     _execute_scrape(
         url=url,
         provider=provider,
@@ -309,7 +416,65 @@ def run_command(
         enable_bfs=enable_bfs,
         enable_modules=enable_modules,
         max_pages=max_pages,
+        skip_waf_sensitive=skip_waf_sensitive,
     )
+
+
+@app.command("providers")
+def providers_command(
+    format_param: Annotated[
+        str,
+        typer.Option("--format", help="Formato de salida: table o json."),
+    ] = "table",
+) -> None:
+    """Lista los proveedores y sus estrategias declaradas en el manifiesto."""
+    normalized_format = format_param.casefold().strip()
+    if normalized_format not in {"table", "json"}:
+        sys.stderr.write("Error: --format debe ser 'table' o 'json'.\n")
+        raise typer.Exit(code=1)
+
+    records: list[dict[str, object]] = [
+        {
+            "id": provider_id,
+            "name": definition.name,
+            "strategies": [strategy.driver for strategy in definition.strategies],
+            "requires_browser": definition.requires_browser,
+            "datacenter_waf_sensitive": definition.datacenter_waf_sensitive,
+            "recommended_limit": definition.recommended_limit,
+        }
+        for provider_id, definition in _PROVIDER_MANIFEST.items()
+    ]
+    if normalized_format == "json":
+        sys.stdout.write(json.dumps(records, ensure_ascii=False, indent=2) + "\n")
+        return
+
+    headers = (
+        "id",
+        "name",
+        "strategies",
+        "requires_browser",
+        "datacenter_waf_sensitive",
+        "recommended_limit",
+    )
+    rows: list[tuple[str, ...]] = []
+    for provider_id, definition in _PROVIDER_MANIFEST.items():
+        rows.append(
+            (
+                provider_id,
+                definition.name,
+                ",".join(strategy.driver for strategy in definition.strategies),
+                str(definition.requires_browser).lower(),
+                str(definition.datacenter_waf_sensitive).lower(),
+                str(definition.recommended_limit),
+            )
+        )
+    widths = [
+        max(len(header), *(len(row[index]) for row in rows))
+        for index, header in enumerate(headers)
+    ]
+    sys.stdout.write("  ".join(header.ljust(widths[index]) for index, header in enumerate(headers)) + "\n")
+    for row in rows:
+        sys.stdout.write("  ".join(value.ljust(widths[index]) for index, value in enumerate(row)) + "\n")
 
 
 @app.callback(invoke_without_command=True)
@@ -321,7 +486,7 @@ def main_callback(
     ] = None,
     provider: Annotated[
         str | None,
-        typer.Option("--provider", "-p", help="Proveedor: ms_learn, openlearn, aprende o netacad."),
+        typer.Option("--provider", "-p", help=f"Proveedor: {_provider_choices()}."),
     ] = None,
     output: Annotated[
         str,
@@ -351,8 +516,15 @@ def main_callback(
         int,
         typer.Option("--max-pages", help="Máximo de páginas para el rastreador BFS genérico."),
     ] = 100,
+    skip_waf_sensitive: Annotated[
+        bool,
+        typer.Option(
+            "--skip-waf-sensitive",
+            help="Omitir proveedores sensibles a WAF cuando --provider all.",
+        ),
+    ] = False,
 ) -> None:
-    """Punto de entrada general de Cursodex v0.4.2."""
+    """Punto de entrada general de Cursodex v0.5.0."""
     if ctx.invoked_subcommand is None:
         if url or provider:
             _execute_scrape(
@@ -365,6 +537,7 @@ def main_callback(
                 enable_bfs=enable_bfs,
                 enable_modules=enable_modules,
                 max_pages=max_pages,
+                skip_waf_sensitive=skip_waf_sensitive,
             )
         else:
             sys.stderr.write(

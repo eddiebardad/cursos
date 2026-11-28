@@ -1,7 +1,7 @@
 """
 schemas/models.py
 ==============================================================================
-Modelo estático Pydantic v2 para Cursodex (v0.4.0).
+Modelo estático Pydantic v2 para Cursodex (v0.5.0).
 
 Cumple estrictamente los contratos de normalización semántica, detección de cambios
 (content_hash SHA-256), canonización de URLs (anti-redirección de portada),
@@ -52,7 +52,7 @@ class AccessType(StrEnum):
 # ==============================================================================
 @functools.lru_cache(maxsize=1)
 def get_vocab_map() -> dict[str, Any]:
-    """Carga mappings/vocab_map.yml relativo a la raíz del repositorio."""
+    """Carga mappings/vocab_map.yml relativo a la raíz del paquete instalable."""
     vocab_path = Path(__file__).resolve().parent.parent / "mappings" / "vocab_map.yml"
     if not vocab_path.exists():
         raise FileNotFoundError(f"Archivo de vocabulario no encontrado en {vocab_path}")
@@ -162,6 +162,87 @@ def resolve_category(
                         best_match = (specificity, canonical)
 
     return best_match[1] if best_match else "Pendiente_Categoria"
+
+
+_PROGRAMMING_DISAMBIGUATORS = (
+    "python",
+    "javascript",
+    "typescript",
+    "sql",
+    "c#",
+    "c++",
+    "java",
+    "html",
+    "react",
+)
+_GENERIC_INFERENCE_TERMS = {
+    "administracion",
+    "business",
+    "cloud",
+    "computacion",
+    "gestion",
+    "informatica",
+    "management",
+    "technology",
+    "tecnologia",
+    "vocabulario",
+    "vocabulary",
+}
+
+
+def infer_category_from_context(
+    title: str,
+    keywords: list[str] | None,
+    canonical_url: str,
+    description: str | None,
+) -> str:
+    """Conservatively infer an otherwise unknown category from local course context."""
+    vocab_categories = get_vocab_map().get("categories", [])
+    programming_category = "Programación y Desarrollo de Software"
+    sources: list[tuple[int, str]] = [(3, title)]
+    sources.extend((3, keyword) for keyword in (keywords or []))
+    path = urllib.parse.urlsplit(canonical_url).path
+    slug_text = re.sub(r"[/_-]+", " ", path)
+    if slug_text:
+        sources.append((2, slug_text))
+    if description:
+        sources.append((1, description[:300]))
+
+    for signal in _PROGRAMMING_DISAMBIGUATORS:
+        if any(match_synonym_boundary(signal, text) for _, text in sources):
+            return programming_category
+
+    scores: dict[str, int] = {}
+    for weight, text in sources:
+        for category_entry in vocab_categories:
+            canonical = category_entry.get("canonical")
+            if not isinstance(canonical, str):
+                continue
+            for synonym in category_entry.get("synonyms", []):
+                if not isinstance(synonym, str):
+                    continue
+                normalized_synonym = normalize_text_for_matching(synonym)
+                if (
+                    normalized_synonym in _GENERIC_INFERENCE_TERMS
+                    or len(normalized_synonym) < 6
+                    or not match_synonym_boundary(synonym, text)
+                ):
+                    continue
+                scores[canonical] = scores.get(canonical, 0) + (
+                    weight * len(normalized_synonym)
+                )
+
+    if not scores:
+        return "Pendiente_Categoria"
+
+    highest_score = max(scores.values())
+    winners = [
+        canonical for canonical, score in scores.items() if score == highest_score
+    ]
+    if len(winners) != 1:
+        return "Pendiente_Categoria"
+
+    return winners[0]
 
 
 def resolve_educational_level(level_raw: str | None) -> str | None:
@@ -531,6 +612,13 @@ class Course(BaseModel):
             keywords=clean_keywords,
             title=clean_name,
         )
+        if clean_cat == "Pendiente_Categoria":
+            clean_cat = infer_category_from_context(
+                title=clean_name,
+                keywords=clean_keywords,
+                canonical_url=clean_url,
+                description=clean_desc,
+            )
 
         # 8. Normalización de nivel educativo
         clean_level = self.educational_level

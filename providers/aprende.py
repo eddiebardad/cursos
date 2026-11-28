@@ -10,7 +10,7 @@ from typing import Any, ClassVar
 from pydantic import ValidationError
 
 from core.crawler import Crawler
-from core.exceptions import ParsingError
+from core.exceptions import NetworkError, ParsingError
 from schemas.models import AccessType, Course, clean_text_field
 from utils.logger import get_logger
 
@@ -20,6 +20,7 @@ logger = get_logger(__name__)
 
 _API_ROOT = "https://besvc.capacitateparaelempleo.org"
 _COURSES_URL = f"{_API_ROOT}/api/Courses?platformId=2"
+_API_HOSTS = ("besvc.capacitateparaelempleo.org",)
 _API_HEADERS = {
     "includeHATEOAS": "N",
     "platformId": "2",
@@ -70,7 +71,16 @@ class AprendeProvider(ProviderBase):
 
     def _fetch_detail(self, crawler: Crawler, course_id: int | str) -> dict[str, Any]:
         detail_url = f"{_API_ROOT}/api/Courses/{course_id}?platformId=2"
-        detail = self._decode_json(crawler.get(detail_url, headers=_API_HEADERS), detail_url)
+        detail = self._decode_json(
+            crawler.get(
+                detail_url,
+                headers=_API_HEADERS,
+                expected_format="json",
+                allowed_hosts=_API_HOSTS,
+                reject_login_path=True,
+            ),
+            detail_url,
+        )
         if not isinstance(detail, dict):
             raise ParsingError(f"Aprende detail API returned a non-object for course {course_id}")
         return detail
@@ -176,7 +186,16 @@ class AprendeProvider(ProviderBase):
     ) -> Iterator[Course]:
         logger.info("Fetching Aprende catalog from %s", _COURSES_URL)
         with Crawler() as crawler:
-            data = self._decode_json(crawler.get(_COURSES_URL, headers=_API_HEADERS), _COURSES_URL)
+            data = self._decode_json(
+                crawler.get(
+                    _COURSES_URL,
+                    headers=_API_HEADERS,
+                    expected_format="json",
+                    allowed_hosts=_API_HOSTS,
+                    reject_login_path=True,
+                ),
+                _COURSES_URL,
+            )
 
             seen_ids: set[str] = set()
             emitted = 0
@@ -192,13 +211,31 @@ class AprendeProvider(ProviderBase):
                 if course is None:
                     continue
 
-                if (
-                    (course.description is None or len(course.description) < 20)
-                    and isinstance(course_id, (int, str))
-                ):
-                    detail = self._fetch_detail(crawler, course_id)
-                    merged = {**record, **{key: value for key, value in detail.items() if value is not None}}
-                    course = self._map_to_course(merged) or course
+                needs_detail = (
+                    course.description is None
+                    or len(course.description) < 20
+                    or course.category == "Pendiente_Categoria"
+                )
+                if needs_detail and isinstance(course_id, (int, str)):
+                    try:
+                        detail = self._fetch_detail(crawler, course_id)
+                    except (NetworkError, ParsingError) as exc:
+                        logger.warning(
+                            "Aprende detail unavailable for course id=%s; "
+                            "keeping catalog metadata: %s",
+                            course_id,
+                            exc,
+                        )
+                    else:
+                        merged = {
+                            **record,
+                            **{
+                                key: value
+                                for key, value in detail.items()
+                                if value is not None
+                            },
+                        }
+                        course = self._map_to_course(merged) or course
 
                 yield course
                 emitted += 1

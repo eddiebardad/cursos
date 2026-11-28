@@ -1,0 +1,52 @@
+providers:
+  - id: ms_learn
+    name: Microsoft Learn
+    base_url: https://learn.microsoft.com/api/catalog/?locale=es-es
+    allowed_hosts:
+      - learn.microsoft.com
+    default_language: es
+    recommended_limit: 100
+    requires_browser: false
+    datacenter_waf_sensitive: false
+    strategies:
+      - driver: ms_learn_api
+
+  - id: openlearn
+    name: OpenLearn (The Open University)
+    base_url: https://www.open.edu/openlearn/free-courses/full-catalogue
+    allowed_hosts:
+      - www.open.edu
+      - open.edu
+    default_language: en
+    recommended_limit: 100
+    requires_browser: false
+    datacenter_waf_sensitive: true
+    strategies:
+      - driver: openlearn_sitemap
+      - driver: openlearn_catalogue
+
+  - id: aprende
+    name: Aprende.org (Fundación Carlos Slim)
+    base_url: https://aprende.org/cursos
+    allowed_hosts:
+      - aprende.org
+      - www.aprende.org
+    default_language: es
+    recommended_limit: 100
+    requires_browser: false
+    datacenter_waf_sensitive: false
+    strategies:
+      - driver: aprende_api
+
+  - id: netacad
+    name: Netacad
+    base_url: https://www.netacad.com/courses/all-courses
+    allowed_hosts:
+      - www.netacad.com
+      - netacad.com
+    default_language: en
+    recommended_limit: 100
+    requires_browser: true
+    datacenter_waf_sensitive: false
+    strategies:
+      - driver: netacad_playwright

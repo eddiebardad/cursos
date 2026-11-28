@@ -175,7 +175,10 @@ def _mock_netacad_page(
         crawler: Crawler,
         url: str,
         wait_until: str = "domcontentloaded",
+        allowed_hosts: tuple[str, ...] | None = None,
+        reject_login_path: bool = False,
     ) -> Iterator[_FakePage]:
+        del allowed_hosts, reject_login_path
         opened_urls.append(url)
         yield _FakePage(html, wait_timeouts)
 
@@ -663,6 +666,62 @@ def test_aprende_detail_is_lazy_and_missing_description_stays_missing(
     assert courses[0].needs_review is True
     assert detail_one_route.call_count == 1
     assert detail_two_route.call_count == 0
+
+
+def test_aprende_fetches_detail_to_rescue_unmapped_category(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(config, "COURTESY_DELAY", 0.0)
+    item = _aprende_item(901)
+    item["sector"] = {"name": "Unmapped sector"}
+    detail_url = (
+        "https://besvc.capacitateparaelempleo.org/api/Courses/901?platformId=2"
+    )
+
+    with respx.mock:
+        respx.get(_APRENDE_CATALOG_URL).mock(
+            return_value=httpx.Response(200, json=[item])
+        )
+        detail_route = respx.get(detail_url).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "id": 901,
+                    "sector": {
+                        "name": "Programación y Desarrollo de Software",
+                    },
+                },
+            )
+        )
+        courses = list(AprendeProvider().scrape(AprendeProvider.default_url))
+
+    assert len(courses) == 1
+    assert courses[0].category == "Programación y Desarrollo de Software"
+    assert detail_route.call_count == 1
+
+
+def test_aprende_detail_failure_keeps_catalog_course(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(config, "COURTESY_DELAY", 0.0)
+    item = _aprende_item(902)
+    item["sector"] = {"name": "Unmapped sector"}
+    detail_url = (
+        "https://besvc.capacitateparaelempleo.org/api/Courses/902?platformId=2"
+    )
+
+    with respx.mock:
+        respx.get(_APRENDE_CATALOG_URL).mock(
+            return_value=httpx.Response(200, json=[item])
+        )
+        respx.get(detail_url).mock(
+            return_value=httpx.Response(503, text="Unavailable")
+        )
+        courses = list(AprendeProvider().scrape(AprendeProvider.default_url))
+
+    assert len(courses) == 1
+    assert courses[0].name == "Curso Aprende 902"
+    assert courses[0].category == "Pendiente_Categoria"
 
 
 @pytest.mark.parametrize("status_code", [401, 403, 503])

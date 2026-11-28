@@ -8,11 +8,12 @@ Codificación UTF-8 pura (sin BOM), separador de listas ';' y cabeceras canónic
 
 import csv
 import io
+import re
 import sys
 from collections.abc import Iterable
 from typing import Any
 
-from exporters.base import BaseExporter
+from exporters.base import BaseExporter, deduplicate_courses
 from schemas.models import Course
 from utils.logger import get_logger
 
@@ -47,6 +48,13 @@ CSV_HEADERS: list[str] = [
     "review_notes",
     "last_seen_at",
 ]
+_CONTROL_CHARACTERS = re.compile(r"[\x00-\x1f\x7f]+")
+
+
+def _clean_cell(value: Any) -> Any:
+    if not isinstance(value, str):
+        return value
+    return re.sub(r"\s+", " ", _CONTROL_CHARACTERS.sub(" ", value)).strip()
 
 
 def _join_list(items: list[str] | None) -> str:
@@ -65,7 +73,7 @@ def course_to_csv_row(course: Course) -> dict[str, Any]:
     review_notes_str = _join_list(course.review_notes)
     cat_str = course.category if course.category and course.category != "Pendiente_Categoria" else ""
 
-    return {
+    row = {
         "dcterms:title": course.name,
         "dcterms:identifier": course.canonical_url,
         "dcterms:publisher": course.provider or "",
@@ -94,11 +102,12 @@ def course_to_csv_row(course: Course) -> dict[str, Any]:
         "review_notes": review_notes_str,
         "last_seen_at": course.last_seen_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
+    return {key: _clean_cell(value) for key, value in row.items()}
 
 
 class CSVExporter(BaseExporter):
     def export(self, courses: Iterable[Course], destination: str) -> None:
-        course_list = list(courses)
+        course_list = deduplicate_courses(courses)
 
         if destination == "-":
             if hasattr(sys.stdout, "reconfigure"):

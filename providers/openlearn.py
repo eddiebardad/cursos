@@ -3,17 +3,19 @@
 from __future__ import annotations
 
 import gzip
+import io
 import re
 import urllib.parse
-import xml.etree.ElementTree as ET
 from collections.abc import Iterator
 from typing import Any, ClassVar
 
 from bs4 import BeautifulSoup
+from defusedxml import ElementTree as ET
+from defusedxml.common import DefusedXmlException
 from pydantic import ValidationError
 
-from core.crawler import Crawler
-from core.exceptions import NetworkError, ParsingError
+from core.crawler import MAX_RESPONSE_BYTES, Crawler
+from core.exceptions import HTTPStatusError, NetworkError, ParsingError
 from core.extractor import extract_course_candidates, extract_open_graph_metadata
 from schemas.models import AccessType, Course
 from utils.logger import get_logger
@@ -27,6 +29,7 @@ class OpenLearnProvider(ProviderBase):
     provider_name = "OpenLearn (The Open University)"
     provider_aliases: ClassVar[tuple[str, ...]] = ("openlearn", "open_learn", "OpenLearn")
     default_url = "https://www.open.edu/openlearn/free-courses/full-catalogue"
+    allowed_hosts: ClassVar[tuple[str, ...]] = ("open.edu", "www.open.edu")
     course_sitemap_url = (
         "https://www.open.edu/openlearn/pluginfile.php/1/local_ocwsitemap/"
         "sitemap/0/courses_sitemap.xml.gz"
@@ -72,8 +75,20 @@ class OpenLearnProvider(ProviderBase):
 
     @staticmethod
     def _parse_sitemap_xml(payload: bytes) -> ET.Element:
+        if len(payload) > MAX_RESPONSE_BYTES:
+            raise ParsingError(
+                f"OpenLearn sitemap exceeded {MAX_RESPONSE_BYTES} downloaded bytes"
+            )
         if payload.startswith(b"\x1f\x8b"):
-            payload = gzip.decompress(payload)
+            try:
+                with gzip.GzipFile(fileobj=io.BytesIO(payload)) as compressed:
+                    payload = compressed.read(MAX_RESPONSE_BYTES + 1)
+                if len(payload) > MAX_RESPONSE_BYTES:
+                    raise ParsingError(
+                        f"OpenLearn sitemap exceeded {MAX_RESPONSE_BYTES} bytes after decompression"
+                    )
+            except (OSError, EOFError) as exc:
+                raise ParsingError(f"OpenLearn returned invalid gzip sitemap: {exc}") from exc
         response_text = payload[:4096].decode("utf-8", errors="ignore").casefold()
         if "just a moment" in response_text or "cf-mitigated" in response_text:
             raise NetworkError(
@@ -82,7 +97,7 @@ class OpenLearnProvider(ProviderBase):
             )
         try:
             return ET.fromstring(payload)
-        except ET.ParseError as exc:
+        except (ET.ParseError, DefusedXmlException) as exc:
             raise ParsingError(f"OpenLearn returned invalid sitemap XML: {exc}") from exc
 
     @staticmethod
@@ -99,7 +114,14 @@ class OpenLearnProvider(ProviderBase):
         crawler: Crawler,
         sitemap_url: str,
     ) -> list[str]:
-        root = cls._parse_sitemap_xml(crawler.get_bytes(sitemap_url))
+        root = cls._parse_sitemap_xml(
+            crawler.get_bytes(
+                sitemap_url,
+                expected_format="xml",
+                retries=0,
+                allowed_hosts=cls.allowed_hosts,
+            )
+        )
         root_name = root.tag.rsplit("}", 1)[-1].casefold()
 
         if root_name == "sitemapindex":
@@ -114,7 +136,14 @@ class OpenLearnProvider(ProviderBase):
             )
             if course_sitemap is None:
                 return []
-            root = cls._parse_sitemap_xml(crawler.get_bytes(course_sitemap))
+            root = cls._parse_sitemap_xml(
+                crawler.get_bytes(
+                    course_sitemap,
+                    expected_format="xml",
+                    retries=0,
+                    allowed_hosts=cls.allowed_hosts,
+                )
+            )
             root_name = root.tag.rsplit("}", 1)[-1].casefold()
 
         if root_name != "urlset":
@@ -150,9 +179,9 @@ class OpenLearnProvider(ProviderBase):
             except NetworkError as exc:
                 logger.warning("Could not read OpenLearn sitemap %s: %s", sitemap_url, exc)
                 if (
-                    "HTTP error 403" in str(exc)
-                    or "anti-bot challenge" in str(exc)
-                ):
+                    isinstance(exc, HTTPStatusError)
+                    and exc.status_code == 403
+                ) or "anti-bot challenge" in str(exc):
                     raise
                 continue
             except (ParsingError, OSError, EOFError) as exc:
@@ -346,7 +375,12 @@ class OpenLearnProvider(ProviderBase):
         seen: set[str] = set()
         for page_number in range(100):
             page_url = cls._catalog_page_url(catalog_url, page_number)
-            html = crawler.get(page_url)
+            html = crawler.get(
+                page_url,
+                expected_format="html",
+                allowed_hosts=cls.allowed_hosts,
+                reject_login_path=True,
+            )
             page_course_urls = cls._catalog_course_urls(html, page_url)
             new_urls = [url for url in page_course_urls if url not in seen]
             if not new_urls and page_number > 0:
@@ -363,7 +397,12 @@ class OpenLearnProvider(ProviderBase):
     ) -> Iterator[Course]:
         with Crawler() as crawler:
             if self._is_course_url(url):
-                html = crawler.get(url)
+                html = crawler.get(
+                    url,
+                    expected_format="html",
+                    allowed_hosts=self.allowed_hosts,
+                    reject_login_path=True,
+                )
                 course = self._course_from_page(html, url)
                 if course is not None:
                     yield course
@@ -383,7 +422,64 @@ class OpenLearnProvider(ProviderBase):
             )
             emitted = 0
             for course_url in course_urls:
-                html = crawler.get(course_url)
+                html = crawler.get(
+                    course_url,
+                    expected_format="html",
+                    allowed_hosts=self.allowed_hosts,
+                    reject_login_path=True,
+                )
+                course = self._course_from_page(html, course_url)
+                if course is None:
+                    continue
+                yield course
+                emitted += 1
+                if limit > 0 and emitted >= limit:
+                    return
+
+    def scrape_strategy(
+        self,
+        url: str,
+        *,
+        strategy: str,
+        limit: int = 0,
+    ) -> Iterator[Course]:
+        """Run one OpenLearn discovery strategy without hiding its fallback boundary."""
+        with Crawler() as crawler:
+            if self._is_course_url(url):
+                html = crawler.get(
+                    url,
+                    expected_format="html",
+                    allowed_hosts=self.allowed_hosts,
+                    reject_login_path=True,
+                )
+                course = self._course_from_page(html, url)
+                if course is not None:
+                    yield course
+                return
+
+            if strategy == "sitemap":
+                course_urls: Iterator[str] = iter(
+                    self._sitemap_course_urls(crawler, url)
+                )
+            elif strategy == "catalogue":
+                requested_path = urllib.parse.urlsplit(url).path.casefold()
+                catalog_url = (
+                    self.default_url
+                    if requested_path.endswith((".xml", ".xml.gz"))
+                    else url
+                )
+                course_urls = self._iter_catalog_urls(crawler, catalog_url)
+            else:
+                raise ValueError(f"Unknown OpenLearn strategy: {strategy}")
+
+            emitted = 0
+            for course_url in course_urls:
+                html = crawler.get(
+                    course_url,
+                    expected_format="html",
+                    allowed_hosts=self.allowed_hosts,
+                    reject_login_path=True,
+                )
                 course = self._course_from_page(html, course_url)
                 if course is None:
                     continue

@@ -18,7 +18,7 @@ flowchart LR
 
 En n8n, `canonical_url` identifica el curso y `content_hash` permite detectar cambios descriptivos. Las actualizaciones siguen **Read-Merge-PUT**: leer el recurso, combinar los campos y enviar el recurso completo mediante `PUT`. Los datos nunca se escriben directamente en Omeka S desde este CLI.
 
-## Proveedores activos en v0.4.2
+## Proveedores activos en v0.5.0
 
 | Identificador | Fuente y motor | Idioma predominante | Política de acceso |
 |---|---|---|---|
@@ -30,6 +30,8 @@ En n8n, `canonical_url` identifica el curso y `content_hash` permite detectar ca
 HubSpot Academy no forma parte del catálogo activo. Se retiró tras comprobar que su sitemap ya no publicaba rutas `/courses/` y que la página observada era una shell SPA sin datos de curso aprovechables en HTML estático.
 
 OpenLearn usa HTTP directo para sitemaps y páginas. Si el proveedor devuelve 403 o un desafío antibot, el extractor registra el bloqueo y no intenta sortearlo automáticamente; un 503 permite probar las alternativas HTTP documentadas.
+
+El catálogo y sus estrategias se declaran en [`mappings/providers.yml`](mappings/providers.yml) y se validan con Pydantic. `StrategyRunner` aplica las estrategias en orden, corta reintentos sobre hosts bloqueados por WAF y utiliza `BatchQualityGate` para descartar únicamente fichas sin metadatos nucleares. La descripción puede faltar sin invalidar un curso. El driver genérico `sitemap_jsonld` permite incorporar fuentes estándar con una entrada YAML.
 
 ## Inicio rápido
 
@@ -64,7 +66,7 @@ Ayuda verificada con `uv run cursodex run --help`:
 | Opción | Descripción | Valor por defecto |
 |---|---|---|
 | `--url`, `-u` | URL de catálogo o curso; el dominio detecta el proveedor | — |
-| `--provider`, `-p` | `ms_learn`, `openlearn`, `aprende` o `netacad` | — |
+| `--provider`, `-p` | Identificador del manifiesto o `all` | — |
 | `--output`, `-o` | Archivo CSV/JSON-LD o `-` para `stdout` (JSON-LD por defecto) | `results.csv` |
 | `--format`, `-f` | `csv` o `jsonld`; si se omite, se infiere y `-` usa JSON-LD por defecto | inferido |
 | `--limit`, `-l` | Máximo de cursos válidos; `0` no limita | `0` |
@@ -72,6 +74,13 @@ Ayuda verificada con `uv run cursodex run --help`:
 | `--enable-bfs` | Activa BFS para sitios sin proveedor; apagado por defecto | desactivado |
 | `--enable-modules` | Incluye módulos de Microsoft Learn además de learning paths | desactivado |
 | `--max-pages` | Máximo de páginas para el rastreador BFS genérico | `100` |
+| `--skip-waf-sensitive` | Omite proveedores sensibles a WAF junto con `--provider all` | desactivado |
+
+```bash
+uv run cursodex providers
+uv run cursodex providers --format json
+uv run cursodex run --provider all --skip-waf-sensitive --limit 20 --output -
+```
 
 Ejemplos:
 
@@ -127,20 +136,21 @@ README.md · ARCHITECTURE.md · PLAN.md · AGENTS.md
 cli.py · config.py · pyproject.toml · uv.lock
 .agent/rules/cursodex.md · .github/copilot-instructions.md
 core/
-  crawler.py · extractor.py · parser.py · exceptions.py · __init__.py
+  crawler.py · extractor.py · parser.py · exceptions.py · manifest.py
+  drivers.py · strategy.py · quality.py
 providers/
   base.py · ms_learn.py · openlearn.py · aprende.py · netacad.py · __init__.py
 schemas/
   models.py · __init__.py
 mappings/
-  vocab_map.yml
+  vocab_map.yml · providers.yml
 exporters/
   base.py · jsonld_exporter.py · csv_exporter.py · __init__.py
 utils/
   logger.py · __init__.py
 tests/
   test_models.py · test_providers.py · test_extractor_and_crawler.py
-  test_exporters_and_cli.py · __init__.py
+  test_core_architecture.py · test_exporters_and_cli.py · __init__.py
 docs/
   TAXONOMY.md · USER_GUIDE.md · index.html
 legacy/

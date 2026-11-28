@@ -1,4 +1,4 @@
-# Cursodex Extractor — Guardrails Permanentes del Agente (v0.4.2)
+# Cursodex Extractor — Guardrails Permanentes del Agente (v0.5.0)
 
 > Este archivo define las reglas inquebrantables para cualquier agente de IA
 > que trabaje sobre el repositorio `cursos` (cursodex-extractor).
@@ -134,7 +134,15 @@ Cursos de pago o pruebas temporales ("7 días gratis") deben **rechazarse con `V
 
 ## Proveedores activos v1
 
-Los Pasos 1–4C están completados. El catálogo registra únicamente `ms_learn`, `openlearn`, `aprende` y `netacad`. No reactivar proveedores retirados ni añadir aliases fuera de sus adaptadores sin actualizar la documentación y las pruebas.
+Los Pasos 1–4C están completados y el catálogo modular v0.5.0 está implementado. `mappings/providers.yml` es la fuente única de IDs, hosts, opciones y estrategias de los proveedores activos (`ms_learn`, `openlearn`, `aprende`, `netacad`). No duplicar esa configuración en el CLI ni reactivar proveedores retirados sin actualizar manifiesto, documentación y pruebas.
+
+## Arquitectura modular v0.5.0
+
+- Validar las entradas del manifiesto mediante Pydantic en `core/manifest.py`; registrar drivers reutilizables en `core/drivers.py`. Mantener disponible `sitemap_jsonld` para futuros proveedores que publiquen sitemaps XML/XML.GZ y Schema.org JSON-LD.
+- Ejecutar estrategias mediante `StrategyRunner`: continuar ante errores upstream, calidad fallida o listas limpias vacías; al recibir 403/desafío, no volver a golpear estrategias del mismo host ni usar navegador para sortear el WAF.
+- Aplicar `ResponseGuard` a respuestas HTTP. Los códigos definitivos y desafíos son fail-fast; páginas HTML no deben aceptarse como JSON/XML. Los reintentos se limitan a fallos de red y respuestas transitorias.
+- `BatchQualityGate` solo puede descartar por fallos del núcleo requerido (título, URL HTTPS/host permitido, proveedor, gratuidad e idioma). Descripción ausente/corta, categoría pendiente, nivel o duración son enriquecimiento opcional.
+- La categoría se rescata en memoria en este orden: señales nativas del proveedor, detalle perezoso del conector cuando aplique e inferencia léxica conservadora desde título, keywords, slug y descripción. El clasificador nunca realiza solicitudes HTTP y los empates ambiguos permanecen pendientes.
 
 La referencia normativa, el inventario de sinónimos y los límites de las 17 categorías se documentan en [docs/TAXONOMY.md](../../docs/TAXONOMY.md). Al modificar `mappings/vocab_map.yml`, actualizar también ese manual y su prueba de consistencia.
 

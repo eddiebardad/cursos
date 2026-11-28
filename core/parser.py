@@ -145,8 +145,6 @@ class Parser:
             ),
             None,
         )
-        if description is None:
-            return None
 
         html_element = soup.find("html")
         language = html_element.get("lang") if html_element else None

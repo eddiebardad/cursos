@@ -58,7 +58,7 @@ Cursodex es un catálogo académico abierto, semántico e interoperable que agre
 El repositorio ha superado los **Pasos 1, 2, 3 y 4A–4C**, con validación de pruebas de sistema operativo, lint y tipado:
 
 * **Gestión de Entorno y Gobernanza (`pyproject.toml`, `uv.lock`):**
-  * Entorno totalmente gestionado por `uv` (`link-mode = "copy"`), con paquete instalable y versión de release `0.4.2`.
+  * Entorno totalmente gestionado por `uv` (`link-mode = "copy"`), con paquete instalable y versión de release `0.5.0`.
   * Dependencias fijadas y reproducibles para HTTP (`httpx`, `playwright`), extracción (`extruct`, `beautifulsoup4`, `lxml`, `lxml-html-clean`, `html5lib`), modelo (`pydantic`, `pyyaml`) y CLI (`typer`, `click`, `typing-extensions`).
   * Dependencias de desarrollo completas (`pytest`, `pytest-httpx`, `respx`, `ruff`, `mypy`).
 
@@ -104,6 +104,14 @@ El repositorio ha superado los **Pasos 1, 2, 3 y 4A–4C**, con validación de p
 
 El catálogo v1 queda limitado a cuatro proveedores operativos: `ms_learn`, `openlearn`, `aprende` y `netacad`. HubSpot Academy se movió a `legacy/` y está excluido del tracking: su sitemap ya no publicaba rutas `/courses/` y la shell SPA española no ofrecía metadatos de curso utilizables en estático.
 
+### 2.3 Arquitectura modular de `0.5.0`
+
+`mappings/providers.yml` declara la identidad, los hosts válidos, el idioma predeterminado y las estrategias de cada fuente. `core/manifest.py` valida el contrato con Pydantic; `core/drivers.py` registra drivers por nombre e incluye `sitemap_jsonld` para futuros proveedores con sitemaps XML/XML.GZ y Schema.org JSON-LD.
+
+`StrategyRunner` ejecuta las estrategias en orden, aplica fallback ante errores de formato, transporte, calidad o lotes vacíos y nunca repite una estrategia que apunte al mismo host bloqueado con 403/desafío. `BatchQualityGate` valida el núcleo obligatorio y poda registros inválidos individualmente cuando el lote conserva calidad suficiente. La falta de descripción, categoría, nivel o duración no invalida una ficha. `ResponseGuard` aplica fail-fast a estados definitivos/desafíos, valida HTML inesperado en endpoints JSON/XML y limita reintentos a fallos transitorios.
+
+La clasificación trabaja primero con las señales del proveedor; Aprende consulta su propio endpoint de detalle cuando falte descripción o la clasificación del listado siga pendiente. Como último paso, `Course` puede inferir localmente a partir de título, keywords, slug y descripción con pesos y fronteras léxicas, sin peticiones HTTP ni asignaciones ante empates ambiguos.
+
 ---
 
 ## 3. Especificación Detallada del Paso 4 (Cierre del Hito 1 — Límite: 31/01/2027)
@@ -146,16 +154,22 @@ El Paso 4 completa los adaptadores de proveedores reales y la infraestructura se
 | Proveedor | Estrategia activa | Reglas de extracción relevantes |
 |---|---|---|
 | **Microsoft Learn** (`ms_learn.py`) | API REST de catálogo | `learningPaths` por defecto; `modules` solo con `--enable-modules`. La categoría se prioriza por `subjects`, `products`, `roles` y, finalmente, título; los slugs pasan a etiquetas limpias. |
-| **OpenLearn** (`openlearn.py`) | Sitemap de cursos `.xml.gz`, índice XML y catálogo paginado de respaldo | Una ficha individual se procesa directamente. En catálogo, las fichas pasan por `extruct` y luego OpenGraph/DOM; el certificado requiere evidencia explícita en el HTML. Los bloqueos 403/desafíos WAF se reportan sin intentar eludirlos; los 503 prueban las alternativas HTTP documentadas. |
-| **Aprende.org** (`aprende.py`) | API JSON pública con `Crawler` | Acepta listas raíz y contenedores `courses`, `data` e `items`; detalle perezoso para descripciones ausentes o menores de 20 caracteres. HTTP/JSON inválidos se reportan como errores técnicos. |
+| **OpenLearn** (`openlearn.py`) | Estrategias declaradas de sitemap `.xml.gz` e índice XML, con catálogo paginado de respaldo | Una ficha individual se procesa directamente. Las fichas pasan por `extruct` y fallback OpenGraph/DOM; los bloqueos 403/desafíos WAF se reportan sin intentar eludirlos. |
+| **Aprende.org** (`aprende.py`) | API JSON pública con `Crawler` | Acepta listas raíz y contenedores `courses`, `data` e `items`; consulta detalle si falta descripción o la categoría del listado queda pendiente. Si el detalle falla, conserva la ficha del catálogo. |
 | **Cisco NetAcad** (`netacad.py`) | Playwright sobre catálogo SPA | Espera los enlaces renderizados y emite solo tarjetas con `Price: Free` o `Gratis`; no consulta `cperf.netacad.com`. |
 
 HubSpot Academy se retiró a `legacy/` después de que el sondeo confirmara que su sitemap ya no publicaba rutas `/courses/` y la shell HTML española carecía de datos estáticos de curso.
 
-### 3.4 Suite offline y criterios de aceptación
+### 3.4 Evolución modular `0.5.0`
 
-* `tests/test_providers.py` cubre los cuatro proveedores con mocks HTTP/Playwright y cortesía puesta a cero en pruebas; la suite estándar no accede a Internet.
-* Criterios de aceptación: `uv run pytest -v`, `uv run ruff check .` y `uv run mypy cli.py config.py schemas/ exporters/ utils/ core/ providers/ tests/` sin errores.
+El catálogo `providers.yml` también alimenta `cursodex providers [--format table|json]`, `--provider all` y `--skip-waf-sensitive`. Los cuatro drivers específicos delegan en sus adaptadores existentes; el driver genérico `sitemap_jsonld` soporta `urlset`, `sitemapindex`, compresión gzip, filtro opcional de URL y nodos `Course` dentro de `@graph`.
+
+El `BatchQualityGate` solo exige título no bloqueado, URL HTTPS de un host autorizado y fuera de login, proveedor, gratuidad explícita e idioma ISO válido. La proporción de poda determina si se devuelve el resto del lote o se levanta `QualityGateError`; los campos descriptivos siguen siendo opcionales y se notifican como warnings cuando proceda.
+
+### 3.5 Suite offline y criterios de aceptación
+
+* `tests/test_providers.py` cubre los cuatro proveedores; `tests/test_core_architecture.py` verifica manifiesto, estrategias, quality gate, ResponseGuard y sitemap genérico con mocks. La suite estándar no accede a Internet.
+* Criterios de aceptación: `uv run pytest -v`, `uv run ruff check .`, `uv run mypy cli.py config.py schemas/ exporters/ utils/ core/ providers/ tests/` y `uv run cursodex providers` sin errores.
 * Los smoke tests manuales de proveedor ejecutan:
   ```bash
   uv run cursodex run -p ms_learn --limit 3 --output -

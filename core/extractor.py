@@ -8,6 +8,7 @@ from typing import Any
 from urllib.parse import urljoin, urlsplit
 
 import extruct
+from bs4 import BeautifulSoup
 
 from schemas.models import AccessType
 from utils.logger import get_logger
@@ -245,13 +246,13 @@ def _candidate_to_course_data(candidate: dict[str, Any], base_url: str) -> dict[
     image = _first_text(image_value, ("url", "contentUrl", "@id"))
 
     free_access = candidate.get("isAccessibleForFree")
-    if _is_explicit_false(free_access):
+    prices = _offer_prices(candidate.get("offers"))
+    if _is_explicit_false(free_access) or any(price > 0 for price in prices):
         is_accessible_for_free = False
     elif _is_explicit_true(free_access):
         is_accessible_for_free = True
     else:
-        prices = _offer_prices(candidate.get("offers"))
-        is_accessible_for_free = not (any(price > 0 for price in prices) and 0 not in prices)
+        is_accessible_for_free = True
 
     result: dict[str, Any] = {
         "name": name,
@@ -330,7 +331,7 @@ def extract_course_candidates(html: str, base_url: str) -> list[dict[str, Any]]:
         extracted = extruct.extract(
             html,
             base_url=base_url,
-            syntaxes=["json-ld", "microdata", "opengraph"],
+            syntaxes=["microdata", "opengraph"],
             uniform=False,
             errors="ignore",
         )
@@ -340,8 +341,27 @@ def extract_course_candidates(html: str, base_url: str) -> list[dict[str, Any]]:
 
     og_properties = _open_graph_properties(extracted.get("opengraph", []))
     result: list[dict[str, Any]] = []
-    for syntax in ("json-ld", "microdata"):
-        for candidate in _iter_course_objects(extracted.get(syntax, [])):
+    soup = BeautifulSoup(html, "html.parser")
+    for script in soup.find_all("script"):
+        script_type = str(script.get("type", "")).split(";", 1)[0].strip().casefold()
+        if script_type != "application/ld+json":
+            continue
+        try:
+            jsonld = extruct.extract(
+                str(script),
+                base_url=base_url,
+                syntaxes=["json-ld"],
+                uniform=False,
+                errors="ignore",
+            )
+        except Exception as exc:
+            logger.debug("JSON-LD extraction failed for %s: %s", base_url, exc)
+            continue
+        for candidate in _iter_course_objects(jsonld.get("json-ld", [])):
             enriched = _enrich_with_open_graph(candidate, og_properties)
             result.append(_candidate_to_course_data(enriched, base_url))
+
+    for candidate in _iter_course_objects(extracted.get("microdata", [])):
+        enriched = _enrich_with_open_graph(candidate, og_properties)
+        result.append(_candidate_to_course_data(enriched, base_url))
     return result

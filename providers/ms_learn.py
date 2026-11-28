@@ -9,6 +9,7 @@ from collections.abc import Iterator
 from typing import Any, ClassVar
 
 from core.crawler import Crawler
+from core.exceptions import UpstreamFormatError
 from schemas.models import AccessType, Course, resolve_category
 from utils.logger import get_logger
 
@@ -45,16 +46,23 @@ class MicrosoftLearnProvider(ProviderBase):
         logger.info("Fetching Microsoft Learn catalog: %s", request_url)
 
         with Crawler() as crawler:
-            response_text = crawler.get(request_url)
+            response_text = crawler.get(
+                request_url,
+                expected_format="json",
+                allowed_hosts=["learn.microsoft.com"],
+                reject_login_path=True,
+            )
 
         try:
             data = json.loads(response_text)
         except json.JSONDecodeError as exc:
-            logger.error("Microsoft Learn catalog returned invalid JSON: %s", exc)
-            return
+            raise UpstreamFormatError(
+                f"Microsoft Learn catalog returned invalid JSON: {exc}"
+            ) from exc
         if not isinstance(data, dict):
-            logger.warning("Microsoft Learn catalog response was not a JSON object.")
-            return
+            raise UpstreamFormatError(
+                "Microsoft Learn catalog response was not a JSON object"
+            )
 
         items = self._collection(data.get("learningPaths"))
         if enable_modules:
